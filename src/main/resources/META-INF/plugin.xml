@@ -29,7 +29,7 @@
                     description="Initiate CS 125 MP grading"/>
         </group>
 
-        <action id="CS125.MainToolBar.Grade"
+        <action id="CS125.ToolbarRunGroup.Grade"
                 class="CS125GradeAction"
                 description="Initiate CS 125 MP grading"
                 icon="/icons/cs125.png">
