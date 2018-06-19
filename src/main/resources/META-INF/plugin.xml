@@ -1,24 +1,41 @@
 <idea-plugin>
     <id>edu.illinois.cs.cs125.intellij-logger</id>
-    <name>Plugin display name here</name>
-    <vendor email="support@yourcompany.com" url="http://www.yourcompany.com">YourCompany</vendor>
+    <name>CS 125 @ Illinois</name>
+    <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
     <description><![CDATA[
-    Enter short description for your plugin here.<br>
-    <em>most HTML tags may be used</em>
+    Plugin to simplify MP development for CS 125 @ Illinois.
     ]]></description>
 
-    <!-- please see http://www.jetbrains.org/intellij/sdk/docs/basics/getting_started/plugin_compatibility.html
-         on how to target different products -->
-    <!-- uncomment to enable plugin in all products
     <depends>com.intellij.modules.lang</depends>
-    -->
 
-    <extensions defaultExtensionNs="com.intellij">
-        <!-- Add your extensions here -->
-    </extensions>
+    <extensions defaultExtensionNs="com.intellij"></extensions>
+
+    <application-components>
+        <component>
+            <implementation-class>CS125Component</implementation-class>
+        </component>
+    </application-components>
 
     <actions>
-        <!-- Add your actions here -->
+        <group id="CS125.MainMenu"
+               text="CS 125"
+               description="CS 125 Main Menu">
+            <add-to-group group-id="MainMenu"
+                          anchor="last"/>
+            <action id="CS125.MainMenu.Grade"
+                    class="CS125GradeAction"
+                    text="Grade MP"
+                    description="Initiate CS 125 MP grading"/>
+        </group>
+
+        <action id="CS125.MainToolBar.Grade"
+                class="CS125GradeAction"
+                description="Initiate CS 125 MP grading"
+                icon="/icons/cs125.png">
+            <add-to-group group-id="ToolbarRunGroup" anchor="last"/>
+            <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl G"/>
+        </action>
+
     </actions>
 </idea-plugin>
