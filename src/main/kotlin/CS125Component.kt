@@ -19,6 +19,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
                 override fun beforeDocumentSaving(document: Document) {
+                    log.info("document being saved")
                     logEditors(document, EditorFactory.getInstance().getEditors(document))
                 }
             })
