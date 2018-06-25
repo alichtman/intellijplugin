@@ -8,6 +8,8 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerAdapter
+import com.intellij.openapi.vfs.VirtualFile
+import org.jetbrains.annotations.NotNull
 
 class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener {
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
@@ -27,6 +29,11 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
         }
+    }
+
+    @NotNull
+    override fun getComponentName(): String {
+        return "CS125 Component"
     }
 
     override fun documentChanged(documentEvent: DocumentEvent) {
@@ -53,18 +60,43 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         log.info("plugin shutting down")
     }
 
+    /**
+     * Returns true if the file activity should be logged.
+     * Checks for the existence of a .cs125 file in the project dir.
+     */
+    private fun shouldLog(baseDir: VirtualFile?): Boolean {
+        val fileFlag: String = ".cs125"
+        for (file in baseDir?.children!!) {
+            if (file.name.contains(fileFlag)) {
+                log.info("LOGGING FILE :: TRUE :: " + file.name)
+                return true
+            }
+        }
+        log.info("LOGGING FILE :: FALSE")
+        return false
+    }
+
     private fun logEditors(document : Document, editors : Array<Editor>) {
         if (editors.isEmpty()) {
             return
         }
-        val file = FileDocumentManager.getInstance().getFile(document)
-        val project = editors[0].project
-        log.info("$file $project")
+
+        val editor = editors[0]
+
+        if (shouldLog(editor.project?.baseDir)) {
+            val file  = FileDocumentManager.getInstance().getFile(document)
+            val project = editor.project
+            log.info("$file $project")
+        }
+
     }
 
     private fun logEditor(document : Document, editor : Editor) {
-        val file = FileDocumentManager.getInstance().getFile(document)
-        val project = editor.project
-        log.info("$file $project")
+
+        if (shouldLog(editor.project?.baseDir)) {
+            val file = FileDocumentManager.getInstance().getFile(document)
+            val project = editor.project
+            log.info("$file $project")
+        }
     }
 }
