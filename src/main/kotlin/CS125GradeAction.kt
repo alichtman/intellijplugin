@@ -7,5 +7,14 @@ class CS125GradeAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         log.info("grading action initiated")
+        runTestNGTests()
+
     }
+
+    fun runTestNGTests() {
+        //TODO: Run TestNG tests
+        return
+    }
+
+
 }
