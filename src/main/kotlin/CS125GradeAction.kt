@@ -4,7 +4,8 @@ import com.intellij.openapi.diagnostic.Logger
 
 
 class CS125GradeAction : AnAction() {
-    val log = Logger.getInstance("edu.illinois.cs.cs125")
+
+    private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
     override fun actionPerformed(e: AnActionEvent) {
         log.info("grading action initiated")
@@ -12,9 +13,8 @@ class CS125GradeAction : AnAction() {
 
     }
 
+    // TODO
     private fun runTestNGTests() {
-        //TODO: Run TestNG tests
-
         return
     }
 
