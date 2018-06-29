@@ -47,7 +47,7 @@ class CS125Persistence {
         return unpostedLogs
     }
 
-    // TODO: Instead of logging with idea.log, reroute logs to a file in home directory, and clear file
+    // TODO: Instead of logging into idea.log, reroute logs to a file in home directory, and clear file
     // TODO:     incrementally as it's pushed to server.
 
 //    private fun getLogFilePath(): File {
