@@ -9,7 +9,9 @@
 
     <depends>com.intellij.modules.lang</depends>
 
-    <extensions defaultExtensionNs="com.intellij"></extensions>
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="CS125Persistence"/>
+    </extensions>
 
     <application-components>
         <component>
