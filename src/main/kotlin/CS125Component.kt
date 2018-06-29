@@ -20,7 +20,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
     /**
-     * Init and Destruct
+     * Init and Destruct, as well as Saving Action
      */
 
     override fun initComponent() {
@@ -30,6 +30,9 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
                 override fun beforeDocumentSaving(document: Document) {
+                    var counter = ActionCounter.getInstance()
+                    counter.documentSaveActionCount++
+
                     val msg = "document being saved"
                     logEditors(document, EditorFactory.getInstance().getEditors(document), msg)
                 }
@@ -71,45 +74,57 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun projectOpened(project: Project?) {
+        var counter = ActionCounter.getInstance()
+        counter.projectOpenCount++
+
         val author = getEmail(project!!)
         val msg = "Project Opened"
-
-        // Make plugin icon disappear if not a CS125 project.
-        // Bug: Will not switch between two open projects, one CS125 related and one not.
-        when (shouldLog(project)) {
-            true -> {
-                // TODO: DISPLAY BUTTON
-            }
-            false -> {
-                // TODO: HIDE BUTTON
-            }
-        }
-
         logProjectSwitch(project, author, msg)
+        println("OPEN COUNT " + counter.projectOpenCount)
 
     }
 
     override fun projectClosed(project: Project?) {
+        var counter = ActionCounter.getInstance()
+        counter.projectCloseCount++
+
         val author = getEmail(project!!)
         val msg = "Project Closed"
         logProjectSwitch(project, author, msg)
     }
 
     override fun documentChanged(documentEvent: DocumentEvent) {
+        var counter = ActionCounter.getInstance()
+        // TODO: Is this a file switch? Or just a doc edit?
+        counter.fileSwitchCount++
+
         val msg = "Document switched"
         logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
     }
 
-    /*************************
-     * Active editing detected.
-     *************************/
+    override fun beforeDocumentChange(documentEvent: DocumentEvent?) {
+        var counter = ActionCounter.getInstance()
+        counter.documentModificationActionCount++
+
+        val msg = "Document switched"
+        if (documentEvent != null) {
+            logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
+        }
+    }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
+        var counter = ActionCounter.getInstance()
+        counter.visibleContentsChangedCount++
+
         val msg = "Visible area changed"
         logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
+        println(counter.visibleContentsChangedCount)
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
+        var counter = ActionCounter.getInstance()
+        counter.mousePressActionCount++
+
         val msg = "Mouse pressed"
         logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
     }
