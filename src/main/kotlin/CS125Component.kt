@@ -125,12 +125,12 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
          */
 
 //        val dt = CS125DataTransfer()
-//        var logs: ArrayList<String> = ArrayList()
-//        logs.add("log1")
-//        logs.add("log2")
+//        var activitySessionLogs: ArrayList<String> = ArrayList()
+//        activitySessionLogs.add("log1")
+//        activitySessionLogs.add("log2")
 //        var stagedLogs = CS125StagedLogs(
 //                "user",
-//                logs)
+//                activitySessionLogs)
 //
 //        dt.postDataToServer(stagedLogs)
     }

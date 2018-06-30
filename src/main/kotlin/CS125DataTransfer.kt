@@ -24,16 +24,16 @@ class CS125DataTransfer {
     fun postDataToServer(stagedLogs: CS125StagedLogs) {
 
         println("Posting data to server.")
-        println(stagedLogs.logs)
+        println(stagedLogs.activitySessionLogs)
 
-        if (stagedLogs.logs.size == 0) {
+        if (stagedLogs.activitySessionLogs.size == 0) {
             print("Aborted server post because there were no stagedLogs.")
             return
         }
 
         /**
          * Configure connection.
-         * curl -X POST -H "Content-Type: application/json" -d '{"username":"user","logs":["log1","log2"]}' http://127.0.0.1:5000/plugin/api/upload_status
+         * curl -X POST -H "Content-Type: application/json" -d '{"username":"user","activitySessionLogs":["log1","log2"]}' http://127.0.0.1:5000/plugin/api/upload_status
          */
 
         val url = URL("http://127.0.0.1:5000/plugin/api/upload_status")

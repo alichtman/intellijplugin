@@ -6,4 +6,4 @@ import java.io.Serializable
  */
 
 data class CS125StagedLogs(val username : String = "",
-                           val logs : ArrayList<ActivityState> = ArrayList<ActivityState>(0)) : Serializable
+                           val activitySessionLogs : ArrayList<ActivityState> = ArrayList<ActivityState>(0)) : Serializable
