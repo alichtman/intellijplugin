@@ -19,8 +19,7 @@ class ActionCounter private constructor() {
     }
 
     companion object {
-        //Debuggable field to check instance count
-        var myInstancesCount = 0;
+        var myInstancesCount = 0
         private val instance: ActionCounter = ActionCounter()
 
         @Synchronized
