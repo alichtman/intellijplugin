@@ -105,7 +105,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     override fun documentChanged(documentEvent: DocumentEvent) {
         var counter = ActivityCounter.getInstance()
         // TODO: Is this a file switch? Or just a doc edit?
-        counter.fileSwitchCount++
+        counter.documentEditCount++
 
         val msg = "Document switched"
         logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
@@ -120,15 +120,19 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
 
-        val dt = CS125DataTransfer()
-        var logs: ArrayList<String> = ArrayList()
-        logs.add("log1")
-        logs.add("log2")
-        var stagedLogs = CS125StagedLogs(
-                "user",
-                logs)
+        /**
+         * Test data transfer.
+         */
 
-        dt.postDataToServer(stagedLogs)
+//        val dt = CS125DataTransfer()
+//        var logs: ArrayList<String> = ArrayList()
+//        logs.add("log1")
+//        logs.add("log2")
+//        var stagedLogs = CS125StagedLogs(
+//                "user",
+//                logs)
+//
+//        dt.postDataToServer(stagedLogs)
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {

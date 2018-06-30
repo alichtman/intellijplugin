@@ -18,7 +18,7 @@ data class Settings(
         var startNewPomodoroAfterBreak: Boolean = false
 ) : PersistentStateComponent<Settings> {
     /**
-     * If IntelliJ shuts down during pomodoro and then restarts, logging can be continued.
+     * If IntelliJ shuts down during logging and then restarts, logging can be continued.
      * This property determines how much time can pass before we consider logging session to be expired.
      * @return timeout in milliseconds
      */

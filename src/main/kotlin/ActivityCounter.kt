@@ -7,7 +7,7 @@ class ActivityCounter private constructor() {
     var visibleContentsChangedCount: Int = 0
     var projectOpenCount: Int = 0
     var projectCloseCount: Int = 0
-    var fileSwitchCount: Int = 0
+    var documentEditCount: Int = 0
 
     init {
         /*

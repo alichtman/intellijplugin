@@ -17,8 +17,8 @@ class ActionModel(originalSettings: Settings, val state: ActivityState) {
 
     fun onIdeStartup(time: Time) = state.apply {
         if (mode != ActivityState.Mode.LogStopped) {
-            val shouldNotContinuePomodoro = Duration.between(lastUpdateTime, time) > settings.timeoutToContinuePomodoro
-            if (shouldNotContinuePomodoro) {
+            val shouldPostData = Duration.between(lastUpdateTime, time) > settings.interval
+            if (shouldPostData) {
                 mode = ActivityState.Mode.LogStopped
                 lastMode = ActivityState.Mode.LogStopped
                 startTime = Time.zero
@@ -38,9 +38,9 @@ class ActionModel(originalSettings: Settings, val state: ActivityState) {
                 mode = ActivityState.Mode.LogStopped
                 progress = progressMax
                 wasManuallyStopped = true
-                if (pomodorosTillLongBreak == 0) {
-                    pomodorosTillLongBreak = settings.longBreakFrequency
-                }
+//                if (pomodorosTillLongBreak == 0) {
+//                    pomodorosTillLongBreak = settings.longBreakFrequency
+//                }
             }
             ActivityState.Mode.LogStopped -> {
                 mode = ActivityState.Mode.LogInProgress
@@ -55,14 +55,14 @@ class ActionModel(originalSettings: Settings, val state: ActivityState) {
             ActivityState.Mode.LogInProgress -> {
                 progress = progressSince(time)
                 if (time >= startTime + progressMax) {
-                    mode = ActivityState.Mode.Break
+                    mode = ActivityState.Mode.LogStopped
                     settings = updatedSettings
                     startTime = time
                     progress = progressSince(time)
                     pomodorosAmount++
                 }
             }
-            ActivityState.Mode.Break -> {
+            ActivityState.Mode.LogStopped -> {
                 progress = progressSince(time)
                 if (time >= startTime + progressMax) {
                     settings = updatedSettings
@@ -74,9 +74,6 @@ class ActionModel(originalSettings: Settings, val state: ActivityState) {
                     }
                     progress = progressMax
                 }
-            }
-            ActivityState.Mode.LogStopped -> if (lastMode == ActivityState.Mode.LogStopped) {
-                return@apply
             }
         }
 
