@@ -110,6 +110,16 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         if (documentEvent != null) {
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
+
+        val dt = CS125DataTransfer()
+        var logs: ArrayList<String> = ArrayList()
+        logs.add("log1")
+        logs.add("log2")
+        var stagedLogs = CS125StagedLogs(
+                "user",
+                logs)
+
+        dt.postDataToServer(stagedLogs)
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
@@ -143,8 +153,8 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
      * Checks for the existence of a .cs125 file in the project dir.
      */
     private fun shouldLog(project: Project): Boolean {
-        val flagPath: String = ".cs125"
-        val flagFile: File = File(project.baseDir.path + File.separator + flagPath)
+        val flagPath = ".cs125"
+        val flagFile = File(project.baseDir.path + File.separator + flagPath)
 //        println("SHOULD LOG: " + flagFile.path + "? -> " + flagFile.exists())
         return flagFile.exists()
     }

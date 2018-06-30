@@ -1,9 +1,11 @@
 
 import com.google.gson.GsonBuilder
-import java.io.DataOutputStream
+import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
-import java.nio.charset.StandardCharsets
+
+
+
 
 class CS125DataTransfer {
 
@@ -23,30 +25,37 @@ class CS125DataTransfer {
      */
     fun postDataToServer(stagedLogs: CS125StagedLogs) {
 
+        println("Posting data to server.")
+        println(stagedLogs.logs)
+
         if (stagedLogs.logs.size == 0) {
-            print("Aborted server post because there was no stagedLogs.")
+            print("Aborted server post because there were no stagedLogs.")
             return
         }
 
-        val serverURL: String = "ADD SERVER URL HERE"
-        val url = URL(serverURL)
+        /**
+         * Configure connection.
+         * curl -X POST -H "Content-Type: application/json" -d '{"username":"user","logs":["log1","log2"]}' http://127.0.0.1:5000/plugin/api/upload_status
+         */
+
+        val url = URL("http://127.0.0.1:5000/plugin/api/upload_status")
         val connection = url.openConnection() as HttpURLConnection
         connection.requestMethod = "POST"
         connection.connectTimeout = 300000
-        connection.connectTimeout = 300000
         connection.doOutput = true
-
-        val strJson: String = convertDataToJSON(stagedLogs)
-        val postData: ByteArray = strJson.toByteArray(StandardCharsets.UTF_8)
-
         connection.setRequestProperty("charset", "utf-8")
-        connection.setRequestProperty("Content-length", postData.size.toString())
         connection.setRequestProperty("Content-Type", "application/json")
+        connection.setRequestProperty("Accept", "application/json")
 
         try {
-            val outputStream = DataOutputStream(connection.outputStream)
-            outputStream.write(postData)
-            outputStream.flush()
+            val strJson: String = convertDataToJSON(stagedLogs)
+
+            val out = OutputStreamWriter(connection.outputStream)
+            out.write(strJson)
+            out.close()
+
+            println("RESPONSE CODE ${connection.responseCode}")
+            println("Data: $strJson")
         } catch (e: Exception) {
             print(e)
         }
