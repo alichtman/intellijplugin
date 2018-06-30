@@ -1,5 +1,5 @@
 
-class ActionCounter private constructor() {
+class ActivityCounter private constructor() {
 
     var documentSaveActionCount: Int = 0
     var documentModificationActionCount: Int = 0
@@ -20,10 +20,10 @@ class ActionCounter private constructor() {
 
     companion object {
         var myInstancesCount = 0
-        private val instance: ActionCounter = ActionCounter()
+        private val instance: ActivityCounter = ActivityCounter()
 
         @Synchronized
-        fun getInstance(): ActionCounter {
+        fun getInstance(): ActivityCounter {
             return instance
         }
     }

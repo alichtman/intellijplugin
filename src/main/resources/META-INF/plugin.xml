@@ -11,6 +11,8 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="CS125Persistence"/>
+        <applicationService serviceInterface="Settings" serviceImplementation="Settings"/>
+        <applicationService serviceInterface="ActivityState" serviceImplementation="ActivityState"/>
     </extensions>
 
     <application-components>
@@ -38,6 +40,5 @@
             <add-to-group group-id="ToolbarRunGroup" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl G"/>
         </action>
-
     </actions>
 </idea-plugin>

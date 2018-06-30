@@ -2,6 +2,7 @@
 import com.intellij.AppTopics
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
+import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
@@ -18,6 +19,8 @@ import java.io.File
 class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
+    private lateinit var timeSource: TimeSource
+    lateinit var model: ActionModel private set
 
     /**
      * Init and Destruct, as well as Saving Action
@@ -26,11 +29,17 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     override fun initComponent() {
         log.info("plugin initialized")
 
+        val settings = Settings.instance
+
+        model = ActionModel(settings, ServiceManager.getService(ActivityState::class.java))
+        model.onIdeStartup(Time.now())
+
+
         ApplicationManager.getApplication().invokeLater {
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
                 override fun beforeDocumentSaving(document: Document) {
-                    var counter = ActionCounter.getInstance()
+                    var counter = ActivityCounter.getInstance()
                     counter.documentSaveActionCount++
 
                     val msg = "document being saved"
@@ -74,7 +83,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun projectOpened(project: Project?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.projectOpenCount++
 
         val author = getEmail(project!!)
@@ -85,7 +94,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun projectClosed(project: Project?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.projectCloseCount++
 
         val author = getEmail(project!!)
@@ -94,7 +103,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun documentChanged(documentEvent: DocumentEvent) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         // TODO: Is this a file switch? Or just a doc edit?
         counter.fileSwitchCount++
 
@@ -103,7 +112,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun beforeDocumentChange(documentEvent: DocumentEvent?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.documentModificationActionCount++
 
         val msg = "Document switched"
@@ -123,7 +132,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.visibleContentsChangedCount++
 
         val msg = "Visible area changed"
@@ -132,7 +141,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.mousePressActionCount++
 
         val msg = "Mouse pressed"

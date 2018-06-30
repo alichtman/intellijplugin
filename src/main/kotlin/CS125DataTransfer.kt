@@ -5,8 +5,6 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 
-
-
 class CS125DataTransfer {
 
     /**
