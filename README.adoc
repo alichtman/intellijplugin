@@ -102,13 +102,13 @@ switching between multiple editor windows
 
 All of these trigger logging the file that was used along with the project.
 
-=== TODO
-
 ==== Action counting
 
 Each of the documentation modifications should update one of a set of counters,
 which are then saved and cleared regularly by a task triggered by a periodic
 timer.
+
+=== TODO
 
 ==== State upload and configuration management
 
