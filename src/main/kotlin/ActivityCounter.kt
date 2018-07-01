@@ -40,10 +40,14 @@ class ActivityCounter constructor() {
     }
 
     companion object {
-        private val instance: ActivityCounter = ActivityCounter()
+        private var instance: ActivityCounter = ActivityCounter()
 
         fun getInstance(): ActivityCounter {
             return instance
+        }
+
+        fun setInstance(instance: ActivityCounter) {
+            this.instance = instance
         }
     }
 }

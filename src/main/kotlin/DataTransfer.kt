@@ -14,31 +14,33 @@ class DataTransfer {
      */
     fun handleSubmittingData() {
         println("SUBMIT DATA CALLED")
-        val currentActivityCounter = ActivityCounter.getInstance()
+
+        // Copy current activity counter and reset all vals on old one.
+        val oldActivityCounter = ActivityCounter.getInstance()
+        val currentActivityCounterCopy = ActivityCounter(oldActivityCounter)
+        oldActivityCounter.resetVals()
+
+        // Read persistent data and merge with current activity counter data, then convert to JSON
         val storedActivityStates = readStoredPersistentData()
-        val updatedActivityState = combineData(currentActivityCounter, storedActivityStates)
+        val updatedActivityState = combineData(currentActivityCounterCopy, storedActivityStates)
         val strJson: String? = convertObjectToJSON(updatedActivityState)
+
+        // Post to server. If successful, clear persistent data. If unsuccessful,
         if (strJson != null) {
             Thread(Runnable {
                 var successful = postDataToServer(strJson)
                 when (successful) {
                     true -> {
-                        println("WIPING PERSISTENT DATA")
+                        println("DATA TRANSFER SUCCCESS -- WIPING PERSISTENT DATA")
                         val emptyData = ActivityLogsPersistence("NON-DEFAULT EMAIL", ArrayList())
                         ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(emptyData)
                     }
                     false -> {
-                        println("DATA TRANSFER ERROR")
-                        val activityCounterCopy = ActivityCounter(currentActivityCounter)
-                        val combinedData: ActivityLogsPersistence = combineData(activityCounterCopy, storedActivityStates)
-                        println("STORING NEW DATA PERSISTENTLY")
-                        ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(combinedData)
+                        println("DATA TRANSFER ERROR -- STORING NEW DATA PERSISTENTLY")
+                        ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(updatedActivityState)
                     }
                 }
-            }).start().also {
-                // Wipe current activity counter
-                currentActivityCounter.resetVals()
-            }
+            }).start()
             }
         }
 
@@ -46,7 +48,7 @@ class DataTransfer {
          * Append new data to end of Activity Logs.
          */
         private fun combineData(newData: ActivityCounter, oldData: ActivityLogsPersistence): ActivityLogsPersistence {
-            println("COMBINED DATA")
+            println("COMBINING DATA")
             oldData.activityLogs.add(newData)
             return oldData
 
