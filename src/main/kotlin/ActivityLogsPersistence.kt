@@ -5,9 +5,9 @@ import com.intellij.openapi.components.Storage
 import com.intellij.util.xmlb.XmlSerializerUtil
 import com.intellij.util.xmlb.annotations.OptionTag
 import java.io.Serializable
+
 /**
- * Class for persisting activity state.
- *
+ * Persisting storage of activity state.
  */
 @State(name = "ActivityLogsPersistence", storages = [(Storage(file = "CS125ActivityStateLogs.state.xml"))])
 data class ActivityLogsPersistence(
@@ -16,7 +16,7 @@ data class ActivityLogsPersistence(
 ) : PersistentStateComponent<ActivityLogsPersistence>, Serializable {
 
     init {
-        println("CONSTR PERSISTENT STATE")
+        println("CONSTRUCT NEW PERSISTENT STATE OBJ")
     }
 
     override fun getState(): ActivityLogsPersistence {

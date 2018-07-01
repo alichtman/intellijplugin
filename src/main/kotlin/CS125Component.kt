@@ -28,7 +28,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     override fun initComponent() {
         log.info("plugin initialized")
 
-        startDataTransferOnScehdule()
+        startScheduluedDataTransfers()
 
         ApplicationManager.getApplication().invokeLater {
             val connection = ApplicationManager.getApplication().messageBus.connect()
@@ -52,13 +52,13 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     /**
-     * Starts the scheduler to submits data every 5 minutes, starting 5 minutes after first called.
+     * Posts data to server on an interval, starting a period of time after this is first called.
      */
-    private fun startDataTransferOnScehdule() {
+    private fun startScheduluedDataTransfers() {
         val timer = Timer(true)
 
-        println("STARTING TIMER FIRST TIME")
-        // TODO: PROD VALUE
+        println("STARTING SCHEDULED DATA TRANSFERS")
+        // TODO: SWAP FOR REAL VALUE
         val shortPeriod: Long = 1000 * 60/12
 //        val fiveMinPeriod: Long = 1000 * 60 * 5
 

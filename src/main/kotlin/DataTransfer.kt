@@ -9,38 +9,41 @@ class DataTransfer {
 
     /**
      * Read stored data, serialize and transfer it.
+     * If successful, clear all locally stored data (both persistent state and current activity counter vals.)
+     * If unsuccessful, combine with the data that's already stored locally and clear the current activity counter.
      */
     fun handleSubmittingData() {
         println("SUBMIT DATA CALLED")
-        val activityCounter = ActivityCounter.getInstance()
+        val currentActivityCounter = ActivityCounter.getInstance()
         val storedActivityStates = readStoredPersistentData()
-        val updatedActivityState = combineData(activityCounter, storedActivityStates)
+        val updatedActivityState = combineData(currentActivityCounter, storedActivityStates)
         val strJson: String? = convertObjectToJSON(updatedActivityState)
         if (strJson != null) {
             Thread(Runnable {
                 var successful = postDataToServer(strJson)
                 when (successful) {
                     true -> {
-                        print("WIPING PERSISTENT DATA")
+                        println("WIPING PERSISTENT DATA")
                         val emptyData = ActivityLogsPersistence("NON-DEFAULT EMAIL", ArrayList())
                         ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(emptyData)
                     }
                     false -> {
                         println("DATA TRANSFER ERROR")
-                        val combinedData: ActivityLogsPersistence = combineData(activityCounter, storedActivityStates)
+                        val activityCounterCopy = ActivityCounter(currentActivityCounter)
+                        val combinedData: ActivityLogsPersistence = combineData(activityCounterCopy, storedActivityStates)
                         println("STORING NEW DATA PERSISTENTLY")
                         ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(combinedData)
                     }
                 }
             }).start().also {
-                // Wipe current activity counter in closure.
-                activityCounter.resetVals()
+                // Wipe current activity counter
+                currentActivityCounter.resetVals()
             }
             }
         }
 
         /**
-         * Append new data to end of Activity Logs and return.
+         * Append new data to end of Activity Logs.
          */
         private fun combineData(newData: ActivityCounter, oldData: ActivityLogsPersistence): ActivityLogsPersistence {
             println("COMBINED DATA")
@@ -51,7 +54,7 @@ class DataTransfer {
 
         private fun readStoredPersistentData(): ActivityLogsPersistence {
             println("READING PERSISTENT DATA")
-            var logs = ServiceManager.getService(ActivityLogsPersistence::class.java).state
+            var logs = ServiceManager.getService(ActivityLogsPersistence::class.java)
             println(logs)
             return logs
         }
@@ -61,6 +64,8 @@ class DataTransfer {
          */
         private fun convertObjectToJSON(stagedLogs: ActivityLogsPersistence): String? {
             println("Serializing object to JSON...")
+
+            // TODO: Check out: stagedLogs.serialize()
             val gson = GsonBuilder().setPrettyPrinting().create()
             val jsonData: String = gson.toJson(stagedLogs)
             println(jsonData)

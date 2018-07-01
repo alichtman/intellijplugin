@@ -1,5 +1,8 @@
-
-class ActivityCounter private constructor() {
+/**
+ * Local activity accumulator.
+ * Used in ActivityLogsPersistence.
+ */
+class ActivityCounter constructor() {
 
     var documentEditCount: Int = 0
     var documentSaveActionCount: Int = 0
@@ -9,7 +12,6 @@ class ActivityCounter private constructor() {
     var projectOpenCount: Int = 0
     var projectCloseCount: Int = 0
     var fileSwitchCount: Int = 0
-
 
     init {
         println("NEW ACTIVITY COUNTER CREATED")
@@ -24,6 +26,17 @@ class ActivityCounter private constructor() {
         projectOpenCount = 0
         projectCloseCount = 0
         fileSwitchCount = 0
+    }
+
+    constructor(another: ActivityCounter) : this() {
+        this.documentEditCount = another.documentEditCount
+        this.documentSaveActionCount = another.documentSaveActionCount
+        this.documentModificationActionCount = another.documentModificationActionCount
+        this.mousePressActionCount = another.mousePressActionCount
+        this.visibleContentsChangedCount = another.visibleContentsChangedCount
+        this.projectOpenCount = another.projectOpenCount
+        this.projectCloseCount = another.projectCloseCount
+        this.fileSwitchCount = another.fileSwitchCount
     }
 
     companion object {
