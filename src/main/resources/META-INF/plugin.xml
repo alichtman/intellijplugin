@@ -10,7 +10,7 @@
     <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="CS125Persistence"/>
+        <applicationService serviceInterface="ActivityLogsPersistence" serviceImplementation="ActivityLogsPersistence"/>
     </extensions>
 
     <application-components>
@@ -38,6 +38,5 @@
             <add-to-group group-id="ToolbarRunGroup" anchor="last"/>
             <keyboard-shortcut keymap="$default" first-keystroke="shift ctrl G"/>
         </action>
-
     </actions>
 </idea-plugin>

@@ -13,6 +13,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManagerListener
 import org.jetbrains.annotations.NotNull
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener {
@@ -26,11 +28,13 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     override fun initComponent() {
         log.info("plugin initialized")
 
+        startScheduluedDataTransfers()
+
         ApplicationManager.getApplication().invokeLater {
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
                 override fun beforeDocumentSaving(document: Document) {
-                    var counter = ActionCounter.getInstance()
+                    val counter = ActivityCounter.getInstance()
                     counter.documentSaveActionCount++
 
                     val msg = "document being saved"
@@ -47,6 +51,24 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         log.info("plugin shutting down")
     }
 
+    /**
+     * Posts data to server on an interval, starting a period of time after this is first called.
+     */
+    private fun startScheduluedDataTransfers() {
+        val timer = Timer(true)
+
+        println("STARTING SCHEDULED DATA TRANSFERS")
+        // TODO: SWAP FOR REAL VALUE
+        val shortPeriod: Long = 1000 * 60/12
+//        val fiveMinPeriod: Long = 1000 * 60 * 5
+
+        timer.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                DataTransfer().handleSubmittingData()
+            }
+        }, shortPeriod, shortPeriod)
+    }
+
 
     @NotNull
     override fun getComponentName(): String {
@@ -61,7 +83,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
      * Extracts email from email.txt file in root dir of open project.
      * Returns email if file exists, and returns "" otherwise.
      */
-    private fun getEmail(project: Project): String {
+    fun getEmail(project: Project): String {
         val projectBaseDir = project.baseDir.path
         var emailPath = File( projectBaseDir + File.separator + "email.txt")
 
@@ -74,7 +96,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun projectOpened(project: Project?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.projectOpenCount++
 
         val author = getEmail(project!!)
@@ -85,7 +107,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun projectClosed(project: Project?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.projectCloseCount++
 
         val author = getEmail(project!!)
@@ -94,16 +116,15 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun documentChanged(documentEvent: DocumentEvent) {
-        var counter = ActionCounter.getInstance()
-        // TODO: Is this a file switch? Or just a doc edit?
-        counter.fileSwitchCount++
+        var counter = ActivityCounter.getInstance()
+        counter.documentEditCount++
 
         val msg = "Document switched"
         logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
     }
 
     override fun beforeDocumentChange(documentEvent: DocumentEvent?) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.documentModificationActionCount++
 
         val msg = "Document switched"
@@ -123,7 +144,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.visibleContentsChangedCount++
 
         val msg = "Visible area changed"
@@ -132,7 +153,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
-        var counter = ActionCounter.getInstance()
+        var counter = ActivityCounter.getInstance()
         counter.mousePressActionCount++
 
         val msg = "Mouse pressed"
@@ -177,7 +198,6 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     private fun logEditor(document: Document, editor: Editor, message: String) {
-
         val project = editor.project
 
         if (shouldLog(project!!)) {
@@ -194,5 +214,22 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             println(completeMessage)
             log.info("$message, $project, $author")
         }
+    }
+
+    /**
+     * Date utilities
+     */
+
+    private fun convertStringToDate(dateStr: String):Date {
+        val format = SimpleDateFormat("yyyy-dd-MM HH:mm:ss", Locale.ENGLISH)
+        return format.parse(dateStr)
+    }
+
+    /**
+     * Returns the date of a log line
+     */
+    private fun extractDateFromLog(line: String): Date {
+        var dateStr = line.split(",")[0]
+        return convertStringToDate(dateStr)
     }
 }
