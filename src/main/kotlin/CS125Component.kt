@@ -2,7 +2,6 @@
 import com.intellij.AppTopics
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
-import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
@@ -14,13 +13,13 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManagerListener
 import org.jetbrains.annotations.NotNull
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.*
 
 
 class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
-    private lateinit var timeSource: TimeSource
-    lateinit var model: ActionModel private set
 
     /**
      * Init and Destruct, as well as Saving Action
@@ -29,11 +28,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     override fun initComponent() {
         log.info("plugin initialized")
 
-        val settings = Settings.instance
-
-        model = ActionModel(settings, ServiceManager.getService(ActivityState::class.java))
-        model.onIdeStartup(Time.now())
-
+        startDataTransferOnScehdule()
 
         ApplicationManager.getApplication().invokeLater {
             val connection = ApplicationManager.getApplication().messageBus.connect()
@@ -54,6 +49,24 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
 
     override fun disposeComponent() {
         log.info("plugin shutting down")
+    }
+
+    /**
+     * Starts the scheduler to submits data every 5 minutes, starting 5 minutes after first called.
+     */
+    private fun startDataTransferOnScehdule() {
+        val timer = Timer(true)
+
+        println("STARTING TIMER FIRST TIME")
+        // TODO: PROD VALUE
+        val shortPeriod: Long = 1000 * 60/12
+//        val fiveMinPeriod: Long = 1000 * 60 * 5
+
+        timer.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                DataTransfer().submitData()
+            }
+        }, shortPeriod, shortPeriod)
     }
 
 
@@ -104,7 +117,6 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
 
     override fun documentChanged(documentEvent: DocumentEvent) {
         var counter = ActivityCounter.getInstance()
-        // TODO: Is this a file switch? Or just a doc edit?
         counter.documentEditCount++
 
         val msg = "Document switched"
@@ -119,20 +131,6 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         if (documentEvent != null) {
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
-
-        /**
-         * Test data transfer.
-         */
-
-//        val dt = CS125DataTransfer()
-//        var activitySessionLogs: ArrayList<String> = ArrayList()
-//        activitySessionLogs.add("log1")
-//        activitySessionLogs.add("log2")
-//        var stagedLogs = CS125StagedLogs(
-//                "user",
-//                activitySessionLogs)
-//
-//        dt.postDataToServer(stagedLogs)
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
@@ -190,7 +188,6 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     private fun logEditor(document: Document, editor: Editor, message: String) {
-
         val project = editor.project
 
         if (shouldLog(project!!)) {
@@ -207,5 +204,22 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             println(completeMessage)
             log.info("$message, $project, $author")
         }
+    }
+
+    /**
+     * Date utilities
+     */
+
+    private fun convertStringToDate(dateStr: String):Date {
+        val format = SimpleDateFormat("yyyy-dd-MM HH:mm:ss", Locale.ENGLISH)
+        return format.parse(dateStr)
+    }
+
+    /**
+     * Returns the date of a log line
+     */
+    private fun extractDateFromLog(line: String): Date {
+        var dateStr = line.split(",")[0]
+        return convertStringToDate(dateStr)
     }
 }

@@ -12,6 +12,10 @@ and is implemented in
 //
 https://kotlinlang.org/[Kotlin].
 
+=== Usage
+
+Depends on the existence of `.config.yaml` and `.csXYZ` (same as whatever is specified in the `.config.yaml` file.)
+
 === IntelliJ Plugin Documentation
 
 Please review the

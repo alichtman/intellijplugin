@@ -12,7 +12,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <applicationService serviceImplementation="CS125Persistence"/>
         <applicationService serviceInterface="Settings" serviceImplementation="Settings"/>
-        <applicationService serviceInterface="ActivityState" serviceImplementation="ActivityState"/>
+        <applicationService serviceInterface="ActivityStateLogs" serviceImplementation="ActivityStateLogs"/>
     </extensions>
 
     <application-components>
