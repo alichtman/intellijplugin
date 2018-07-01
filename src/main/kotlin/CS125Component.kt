@@ -64,7 +64,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
 
         timer.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
-                DataTransfer().submitData()
+                DataTransfer().handleSubmittingData()
             }
         }, shortPeriod, shortPeriod)
     }

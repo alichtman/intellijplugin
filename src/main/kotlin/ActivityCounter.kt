@@ -12,14 +12,12 @@ class ActivityCounter private constructor() {
 
 
     init {
-        ++instancesCount
+        println("NEW ACTIVTIY COUNTER CREATED")
     }
 
     companion object {
-        var instancesCount = 0
         private val instance: ActivityCounter = ActivityCounter()
 
-        @Synchronized
         fun getInstance(): ActivityCounter {
             return instance
         }

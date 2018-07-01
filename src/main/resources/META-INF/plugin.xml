@@ -10,9 +10,7 @@
     <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <applicationService serviceImplementation="CS125Persistence"/>
-        <applicationService serviceInterface="Settings" serviceImplementation="Settings"/>
-        <applicationService serviceInterface="ActivityStateLogs" serviceImplementation="ActivityStateLogs"/>
+        <applicationService serviceInterface="ActivityLogsPersistence" serviceImplementation="ActivityLogsPersistence"/>
     </extensions>
 
     <application-components>

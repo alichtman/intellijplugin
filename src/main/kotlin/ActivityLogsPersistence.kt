@@ -9,22 +9,22 @@ import java.io.Serializable
  * Class for persisting activity state.
  *
  */
-@State(name = "ActivityStateLogs", storages = arrayOf(Storage(file = "CS125ActivityStateLogs.state.xml")))
-data class ActivityStateLogs(
+@State(name = "ActivityLogsPersistence", storages = [(Storage(file = "CS125ActivityStateLogs.state.xml"))])
+data class ActivityLogsPersistence(
         @OptionTag(nameAttribute = "username") var username: String = "DEFAULT",
         @OptionTag(nameAttribute = "activityLogs") var activityLogs: ArrayList<ActivityCounter> = ArrayList()
-) : PersistentStateComponent<ActivityStateLogs>, Serializable {
+) : PersistentStateComponent<ActivityLogsPersistence>, Serializable {
 
     init {
         println("CONSTR PERSISTENT STATE")
     }
 
-    override fun getState(): ActivityStateLogs {
+    override fun getState(): ActivityLogsPersistence {
         println("GET PERSISTENT STATE")
         return this
     }
 
-    override fun loadState(persistence: ActivityStateLogs) {
+    override fun loadState(persistence: ActivityLogsPersistence) {
         println("LOAD PERSISTENT STATE")
         XmlSerializerUtil.copyBean(persistence, this)
     }
