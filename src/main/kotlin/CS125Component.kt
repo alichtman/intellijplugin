@@ -17,7 +17,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 
-class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener {
+class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener, EventListener, CaretListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
@@ -38,6 +38,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
                     counter.documentSaveActionCount++
 
                     val msg = "document being saved"
+                    println(msg)
                     logEditors(document, EditorFactory.getInstance().getEditors(document), msg)
                 }
             })
@@ -95,14 +96,18 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         }
     }
 
+    override fun caretPositionChanged(e: CaretEvent?) {
+
+    }
+
     override fun projectOpened(project: Project?) {
         var counter = ActivityCounter.getInstance()
         counter.projectOpenCount++
 
         val author = getEmail(project!!)
-        val msg = "Project Opened"
+        val msg = "PROJECT OPENED"
         logProjectSwitch(project, author, msg)
-        println("OPEN COUNT " + counter.projectOpenCount)
+        println(msg)
 
     }
 
@@ -131,16 +136,6 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         if (documentEvent != null) {
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
-
-        val dt = CS125DataTransfer()
-        var logs: ArrayList<String> = ArrayList()
-        logs.add("log1")
-        logs.add("log2")
-        var stagedLogs = CS125StagedLogs(
-                "user",
-                logs)
-
-        dt.postDataToServer(stagedLogs)
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
