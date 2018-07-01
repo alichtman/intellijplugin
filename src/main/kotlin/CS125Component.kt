@@ -34,7 +34,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
             val connection = ApplicationManager.getApplication().messageBus.connect()
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
                 override fun beforeDocumentSaving(document: Document) {
-                    var counter = ActivityCounter.getInstance()
+                    val counter = ActivityCounter.getInstance()
                     counter.documentSaveActionCount++
 
                     val msg = "document being saved"
@@ -83,7 +83,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
      * Extracts email from email.txt file in root dir of open project.
      * Returns email if file exists, and returns "" otherwise.
      */
-    private fun getEmail(project: Project): String {
+    fun getEmail(project: Project): String {
         val projectBaseDir = project.baseDir.path
         var emailPath = File( projectBaseDir + File.separator + "email.txt")
 

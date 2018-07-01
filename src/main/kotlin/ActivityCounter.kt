@@ -12,7 +12,18 @@ class ActivityCounter private constructor() {
 
 
     init {
-        println("NEW ACTIVTIY COUNTER CREATED")
+        println("NEW ACTIVITY COUNTER CREATED")
+    }
+
+    fun resetVals() {
+        documentEditCount = 0
+        documentSaveActionCount = 0
+        documentModificationActionCount = 0
+        mousePressActionCount = 0
+        visibleContentsChangedCount = 0
+        projectOpenCount = 0
+        projectCloseCount = 0
+        fileSwitchCount = 0
     }
 
     companion object {

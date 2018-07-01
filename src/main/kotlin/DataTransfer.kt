@@ -12,24 +12,30 @@ class DataTransfer {
      */
     fun handleSubmittingData() {
         println("SUBMIT DATA CALLED")
+        val activityCounter = ActivityCounter.getInstance()
         val storedActivityStates = readStoredPersistentData()
-        val strJson: String? = convertObjectToJSON(storedActivityStates)
+        val updatedActivityState = combineData(activityCounter, storedActivityStates)
+        val strJson: String? = convertObjectToJSON(updatedActivityState)
         if (strJson != null) {
             Thread(Runnable {
                 var successful = postDataToServer(strJson)
                 when (successful) {
                     true -> {
                         print("WIPING PERSISTENT DATA")
+                        val emptyData = ActivityLogsPersistence("NON-DEFAULT EMAIL", ArrayList())
+                        ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(emptyData)
                     }
                     false -> {
                         println("DATA TRANSFER ERROR")
-                        val newData: ActivityCounter = ActivityCounter.getInstance()
-                        var combinedData: ActivityLogsPersistence = combineData(newData, storedActivityStates)
-                        println("STORED PERSISTENTLY")
+                        val combinedData: ActivityLogsPersistence = combineData(activityCounter, storedActivityStates)
+                        println("STORING NEW DATA PERSISTENTLY")
                         ServiceManager.getService(ActivityLogsPersistence::class.java).loadState(combinedData)
                     }
                 }
-            }).start()
+            }).start().also {
+                // Wipe current activity counter in closure.
+                activityCounter.resetVals()
+            }
             }
         }
 
