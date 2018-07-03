@@ -1,5 +1,6 @@
 
 import com.intellij.AppTopics
+import com.intellij.ProjectTopics
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
@@ -9,8 +10,11 @@ import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerAdapter
+import com.intellij.openapi.module.Module
+import com.intellij.openapi.project.ModuleListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.util.Function
 import org.jetbrains.annotations.NotNull
 import java.io.File
 import java.text.SimpleDateFormat
@@ -32,19 +36,44 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
 
         ApplicationManager.getApplication().invokeLater {
             val connection = ApplicationManager.getApplication().messageBus.connect()
+
             connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
+                // WORKS
                 override fun beforeDocumentSaving(document: Document) {
                     val counter = ActivityCounter.getInstance()
                     counter.documentSaveActionCount++
 
-                    val msg = "document being saved"
-                    println(msg)
+                    val msg = "DOCUMENT SAVED"
                     logEditors(document, EditorFactory.getInstance().getEditors(document), msg)
                 }
             })
+
+            connection.subscribe(ProjectTopics.MODULES, object : ModuleListener {
+                // TODO: DOES NOT WORK
+                override fun moduleAdded(project: Project, module: Module) {
+                    val counter = ActivityCounter.getInstance()
+                    counter.moduleAddedCount++
+
+                    val msg = "MODULE ADDED"
+                    println(msg)
+                }
+
+                // TODO: DOES NOT WORK
+                override fun modulesRenamed(project: Project, modules: MutableList<Module>, oldNameProvider: Function<Module, String>) {
+                    val counter = ActivityCounter.getInstance()
+                    counter.moduleRenamed++
+
+                    val msg = "MODULE RENAMED"
+                    println(msg)
+                }
+            })
+
             EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
+            EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
+            // TODO: Figure out params for this call.
+//            EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
         }
     }
 
@@ -59,15 +88,16 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         val timer = Timer(true)
 
         println("STARTING SCHEDULED DATA TRANSFERS")
-        // TODO: SWAP FOR REAL VALUE
-        val shortPeriod: Long = 1000 * 60/12
+
+
+        val testPeriod: Long = 1000 * 60/2
 //        val fiveMinPeriod: Long = 1000 * 60 * 5
 
         timer.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 DataTransfer().handleSubmittingData()
             }
-        }, shortPeriod, shortPeriod)
+        }, testPeriod, testPeriod)
     }
 
 
@@ -84,7 +114,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
      * Extracts email from email.txt file in root dir of open project.
      * Returns email if file exists, and returns "" otherwise.
      */
-    fun getEmail(project: Project): String {
+    private fun getEmail(project: Project): String {
         val projectBaseDir = project.baseDir.path
         var emailPath = File( projectBaseDir + File.separator + "email.txt")
 
@@ -97,42 +127,37 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun caretPositionChanged(e: CaretEvent?) {
-
+        val msg = "NOTIFY -- caret position changed"
+        println(msg)
     }
 
+    // TODO: DOES NOT WORK
     override fun projectOpened(project: Project?) {
-        var counter = ActivityCounter.getInstance()
+        val counter = ActivityCounter.getInstance()
         counter.projectOpenCount++
 
         val author = getEmail(project!!)
-        val msg = "PROJECT OPENED"
+        val msg = "NOTIFY -- PROJECT OPENED"
         logProjectSwitch(project, author, msg)
         println(msg)
-
     }
 
+    // TODO: DOES NOT WORK
     override fun projectClosed(project: Project?) {
         var counter = ActivityCounter.getInstance()
         counter.projectCloseCount++
 
         val author = getEmail(project!!)
-        val msg = "Project Closed"
+        val msg = "NOTIFY -- Project Closed"
         logProjectSwitch(project, author, msg)
     }
 
-    override fun documentChanged(documentEvent: DocumentEvent) {
+    // WORKS
+    override fun documentChanged(documentEvent: DocumentEvent?) {
         var counter = ActivityCounter.getInstance()
-        counter.documentEditCount++
+        counter.documentModificationCount++
 
-        val msg = "Document switched"
-        logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
-    }
-
-    override fun beforeDocumentChange(documentEvent: DocumentEvent?) {
-        var counter = ActivityCounter.getInstance()
-        counter.documentModificationActionCount++
-
-        val msg = "Document switched"
+        val msg = "NOTIFY -- Document modified"
         if (documentEvent != null) {
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
@@ -142,16 +167,15 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         var counter = ActivityCounter.getInstance()
         counter.visibleContentsChangedCount++
 
-        val msg = "Visible area changed"
+        val msg = "NOTIFY -- Visible area changed"
         logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
-        println(counter.visibleContentsChangedCount)
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
-        var counter = ActivityCounter.getInstance()
-        counter.mousePressActionCount++
+        val counter = ActivityCounter.getInstance()
+        counter.mouseActionCount++
 
-        val msg = "Mouse pressed"
+        val msg = "NOTIFY -- Mouse pressed"
         logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
     }
 

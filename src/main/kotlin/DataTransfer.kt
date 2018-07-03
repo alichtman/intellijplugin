@@ -57,7 +57,7 @@ class DataTransfer {
         private fun readStoredPersistentData(): ActivityLogsPersistence {
             println("READING PERSISTENT DATA")
             var logs = ServiceManager.getService(ActivityLogsPersistence::class.java)
-            println(logs)
+//            println(logs)
             return logs
         }
 
@@ -70,7 +70,7 @@ class DataTransfer {
             // TODO: Check out: stagedLogs.serialize()
             val gson = GsonBuilder().setPrettyPrinting().create()
             val jsonData: String = gson.toJson(stagedLogs)
-            println(jsonData)
+//            println(jsonData)
             return jsonData
         }
 
