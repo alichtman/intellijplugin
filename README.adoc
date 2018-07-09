@@ -14,7 +14,7 @@ https://kotlinlang.org/[Kotlin].
 
 === Usage
 
-Depends on the existence of `.config.yaml` and `.csXYZ` (same as whatever is specified in the `.config.yaml` file.)
+Depends on the existence of the hidden file `.cs125`. File name will be customizable once configuration is sorted out.
 
 === IntelliJ Plugin Documentation
 
@@ -112,15 +112,15 @@ Each of the documentation modifications should update one of a set of counters,
 which are then saved and cleared regularly by a task triggered by a periodic
 timer.
 
-=== TODO
+==== Data Storage and Transfer
 
-==== State upload and configuration management
+Periodically we post all saved activity logs to a web endpoint.
+//
+If the web server is not available, the logs are stored and the transmission will be retried later.
+//
 
-Periodically we should post all saved counters to a web endpoint.
-//
-This also needs to be configured somehow.
-//
-I wonder if the configuration should live in the project somewhere, so that when
+This will need a configuration file, and I wonder if the
+ configuration should live in the project somewhere, so that when
 we load a project we search for a configuration, use it if we find it, and
 disable the plugin if we don't.
 //
@@ -149,3 +149,43 @@ Extra information could include:
 * Cut and paste, particularly paste from an external source
 //
 * Estimates of typing speed
+
+
+==== Data Output Format
+
+```json
+{
+    "emails": ["aaronjl2@illinois.edu"],
+    "activity_session_logs": [
+      {
+        "START_TIMESTAMP": 1230435234,
+        "END_TIMESTAMP": 12404312233,
+        "ACTION_LOGS": {
+          "ACTIVE": 70,
+          "PROJ_OPEN": 14,
+          "PROJ_CLOSE": 82,
+          "DOC_SAVE": 94,
+          "DOC_MOD": 11,
+          "TEST_RUN": 2
+        }
+      }
+    ]
+}
+```
+
+*Action Types*
+
+1. `ACTIVE`: Click/Press Mouse/Scroll
+1. `PROJ_OPEN`: Project Open
+1. `PROJ_CLOSE`: Project Close
+1. `DOC_SAVE`: Document Save
+1. `DOC_MOD`: Document Modification
+1. `TEST_RUN`: Test Suite Run
+
+*Emails*
+
+A set of all emails pulled from the `email.txt` file in the root folder of the "in focus" project directory. From this, we will be able to check if any students have an MP open on their computer that isn't theirs.
+
+*Start/End Timestamp*
+
+The beginning and ending timestamp for the data block.

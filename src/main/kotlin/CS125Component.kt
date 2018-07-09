@@ -53,18 +53,14 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
                 override fun moduleAdded(project: Project, module: Module) {
                     val counter = ActivityCounter.getInstance()
                     counter.moduleAddedCount++
-
-                    val msg = "MODULE ADDED"
-                    println(msg)
+                    println("MODULE ADDED")
                 }
 
                 // TODO: DOES NOT WORK
                 override fun modulesRenamed(project: Project, modules: MutableList<Module>, oldNameProvider: Function<Module, String>) {
                     val counter = ActivityCounter.getInstance()
                     counter.moduleRenamed++
-
-                    val msg = "MODULE RENAMED"
-                    println(msg)
+                    println("MODULE RENAMED")
                 }
             })
 
@@ -127,7 +123,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     override fun caretPositionChanged(e: CaretEvent?) {
-        val msg = "NOTIFY -- caret position changed"
+        val msg = "CARET POSITION CHANGED"
         println(msg)
     }
 
@@ -137,7 +133,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         counter.projectOpenCount++
 
         val author = getEmail(project!!)
-        val msg = "NOTIFY -- PROJECT OPENED"
+        val msg = "PROJECT OPENED"
         logProjectSwitch(project, author, msg)
         println(msg)
     }
@@ -148,7 +144,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         counter.projectCloseCount++
 
         val author = getEmail(project!!)
-        val msg = "NOTIFY -- Project Closed"
+        val msg = "PROJECT CLOSED"
         logProjectSwitch(project, author, msg)
     }
 
@@ -157,7 +153,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         var counter = ActivityCounter.getInstance()
         counter.documentModificationCount++
 
-        val msg = "NOTIFY -- Document modified"
+        val msg = "DOCUMENT MODIFIED"
         if (documentEvent != null) {
             logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
         }
@@ -167,7 +163,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         var counter = ActivityCounter.getInstance()
         counter.visibleContentsChangedCount++
 
-        val msg = "NOTIFY -- Visible area changed"
+        val msg = "VISIBLE AREA CHANGED"
         logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
     }
 
@@ -175,7 +171,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         val counter = ActivityCounter.getInstance()
         counter.mouseActionCount++
 
-        val msg = "NOTIFY -- Mouse pressed"
+        val msg = "MOUSE PRESSED"
         logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
     }
 
