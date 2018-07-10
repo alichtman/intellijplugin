@@ -2,8 +2,7 @@
 import com.intellij.execution.ProgramRunnerUtil
 import com.intellij.execution.RunManager
 import com.intellij.execution.RunnerAndConfigurationSettings
-import com.intellij.execution.configurations.ConfigurationFactory
-import com.intellij.execution.configurations.ConfigurationType
+import com.intellij.execution.executors.DefaultRunExecutor
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.diagnostic.Logger
@@ -23,9 +22,12 @@ class CS125GradeAction : AnAction() {
 
     }
 
-    // TODO: Figure out where factory and executor come from.
+    // TODO: Figure out how to put together TestConfiguration
     private fun triggerRunConfiguration(project: Project) {
         val name = "CS125 Test Configuration"
+        val testConfiguration = TestConfiguration.getInstance()
+        val factory = testConfiguration.getFactory()
+        val executor = DefaultRunExecutor.getRunExecutorInstance()
         val runSettings: RunnerAndConfigurationSettings = RunManager.getInstance(project).createRunConfiguration(name, factory)
         ProgramRunnerUtil.executeConfiguration(runSettings, executor)
     }
