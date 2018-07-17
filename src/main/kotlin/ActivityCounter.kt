@@ -6,12 +6,14 @@ class ActivityCounter constructor() {
 
     var documentEditCount: Int = 0
     var documentSaveActionCount: Int = 0
-    var documentModificationActionCount: Int = 0
-    var mousePressActionCount: Int = 0
+    var documentModificationCount: Int = 0
+    var mouseActionCount: Int = 0
     var visibleContentsChangedCount: Int = 0
     var projectOpenCount: Int = 0
     var projectCloseCount: Int = 0
     var fileSwitchCount: Int = 0
+    var moduleAddedCount: Int = 0
+    var moduleRenamed: Int = 0
 
     init {
         println("NEW ACTIVITY COUNTER CREATED")
@@ -20,8 +22,8 @@ class ActivityCounter constructor() {
     fun resetVals() {
         documentEditCount = 0
         documentSaveActionCount = 0
-        documentModificationActionCount = 0
-        mousePressActionCount = 0
+        documentModificationCount = 0
+        mouseActionCount = 0
         visibleContentsChangedCount = 0
         projectOpenCount = 0
         projectCloseCount = 0
@@ -31,8 +33,8 @@ class ActivityCounter constructor() {
     constructor(another: ActivityCounter) : this() {
         this.documentEditCount = another.documentEditCount
         this.documentSaveActionCount = another.documentSaveActionCount
-        this.documentModificationActionCount = another.documentModificationActionCount
-        this.mousePressActionCount = another.mousePressActionCount
+        this.documentModificationCount = another.documentModificationCount
+        this.mouseActionCount = another.mouseActionCount
         this.visibleContentsChangedCount = another.visibleContentsChangedCount
         this.projectOpenCount = another.projectOpenCount
         this.projectCloseCount = another.projectCloseCount
