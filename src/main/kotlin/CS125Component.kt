@@ -1,6 +1,4 @@
 
-import com.intellij.AppTopics
-import com.intellij.ProjectTopics
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
@@ -9,97 +7,86 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
-import com.intellij.openapi.fileEditor.FileDocumentManagerAdapter
-import com.intellij.openapi.module.Module
-import com.intellij.openapi.project.ModuleListener
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManagerListener
-import com.intellij.util.Function
 import org.jetbrains.annotations.NotNull
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.concurrent.timer
 
-
-class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListener, EditorMouseListener, ProjectManagerListener, EventListener, CaretListener {
+class CS125Component :
+        ApplicationComponent,
+        DocumentListener,
+        VisibleAreaListener,
+        EditorMouseListener,
+        ProjectManagerListener,
+        CaretListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
+    @NotNull
+    override fun getComponentName(): String {
+        return "CS125 Plugin"
+    }
 
-    /**
-     * Init and Destruct, as well as Saving Action
-     */
+    data class Counter(
+            var documentChangedCount: Int = 0,
+            var caretPositionChangedCount: Int = 0,
+            var visibleAreaChangedCount: Int = 0,
+            var mousePressedCount: Int = 0
+    )
+    var currentCounter = Counter()
 
     override fun initComponent() {
-        log.info("plugin initialized")
-
-        startScheduluedDataTransfers()
-
         ApplicationManager.getApplication().invokeLater {
-            val connection = ApplicationManager.getApplication().messageBus.connect()
-
-            connection.subscribe(AppTopics.FILE_DOCUMENT_SYNC, object : FileDocumentManagerAdapter() {
-                // WORKS
-                override fun beforeDocumentSaving(document: Document) {
-                    val counter = ActivityCounter.getInstance()
-                    counter.documentSaveActionCount++
-
-                    val msg = "DOCUMENT SAVED"
-                    logEditors(document, EditorFactory.getInstance().getEditors(document), msg)
-                }
-            })
-
-            connection.subscribe(ProjectTopics.MODULES, object : ModuleListener {
-                // TODO: DOES NOT WORK
-                override fun moduleAdded(project: Project, module: Module) {
-                    val counter = ActivityCounter.getInstance()
-                    counter.moduleAddedCount++
-                    println("MODULE ADDED")
-                }
-
-                // TODO: DOES NOT WORK
-                override fun modulesRenamed(project: Project, modules: MutableList<Module>, oldNameProvider: Function<Module, String>) {
-                    val counter = ActivityCounter.getInstance()
-                    counter.moduleRenamed++
-                    println("MODULE RENAMED")
-                }
-            })
-
+            log.info("initComponent")
             EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
             EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
-            // TODO: Figure out params for this call.
-//            EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
+            // restartUploadTimer()
+            // EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
         }
     }
 
-    override fun disposeComponent() {
-        log.info("plugin shutting down")
+    val UPLOAD_TIMER_INITIAL_DELAY = 1000L
+    val UPLOAD_TIMER_PERIOD = 10 * 60 * 1000L
+    private var uploadTimer: Timer? = null
+    private fun restartUploadTimer() {
+        uploadTimer?.cancel();
+        uploadTimer = timer("edu.illinois.cs.cs125", true,
+                UPLOAD_TIMER_INITIAL_DELAY, UPLOAD_TIMER_PERIOD, {
+            DataTransfer().handleSubmittingData()
+        })
     }
 
-    /**
-     * Posts data to server on an interval, starting a period of time after this is first called.
-     */
-    private fun startScheduluedDataTransfers() {
-        val timer = Timer(true)
+    override fun documentChanged(documentEvent: DocumentEvent?) {
+        log.info("documentChanged")
+        currentCounter.documentChangedCount++
 
-        println("STARTING SCHEDULED DATA TRANSFERS")
-
-
-        val testPeriod: Long = 1000 * 60/2
-//        val fiveMinPeriod: Long = 1000 * 60 * 5
-
-        timer.scheduleAtFixedRate(object : TimerTask() {
-            override fun run() {
-                DataTransfer().handleSubmittingData()
-            }
-        }, testPeriod, testPeriod)
+        /*
+        val msg = "DOCUMENT MODIFIED"
+        if (documentEvent != null) {
+            logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
+        }
+        */
     }
 
+    override fun caretPositionChanged(e: CaretEvent?) {
+        log.info("caretPositionChanged")
+        currentCounter.caretPositionChangedCount++
+    }
 
-    @NotNull
-    override fun getComponentName(): String {
-        return "CS125Component"
+    override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
+        log.info("visibleAreaChanged")
+        currentCounter.visibleAreaChangedCount++
+        //logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
+    }
+
+    override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
+        log.info("mousePressed")
+        currentCounter.mousePressedCount++
+        //logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
     }
 
     /*******************************
@@ -122,10 +109,7 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
         }
     }
 
-    override fun caretPositionChanged(e: CaretEvent?) {
-        val msg = "CARET POSITION CHANGED"
-        println(msg)
-    }
+
 
     // TODO: DOES NOT WORK
     override fun projectOpened(project: Project?) {
@@ -149,31 +133,11 @@ class CS125Component : ApplicationComponent, DocumentListener, VisibleAreaListen
     }
 
     // WORKS
-    override fun documentChanged(documentEvent: DocumentEvent?) {
-        var counter = ActivityCounter.getInstance()
-        counter.documentModificationCount++
 
-        val msg = "DOCUMENT MODIFIED"
-        if (documentEvent != null) {
-            logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
-        }
-    }
 
-    override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
-        var counter = ActivityCounter.getInstance()
-        counter.visibleContentsChangedCount++
 
-        val msg = "VISIBLE AREA CHANGED"
-        logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
-    }
 
-    override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
-        val counter = ActivityCounter.getInstance()
-        counter.mouseActionCount++
 
-        val msg = "MOUSE PRESSED"
-        logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
-    }
 
     override fun mouseClicked(e: EditorMouseEvent) {}
     override fun mouseReleased(e: EditorMouseEvent) {}

@@ -1,12 +1,12 @@
-/**
- * Local activity accumulator.
- * Used in ActivityLogsPersistence.
- */
 class ActivityCounter constructor() {
 
-    var documentEditCount: Int = 0
-    var documentSaveActionCount: Int = 0
-    var documentModificationCount: Int = 0
+    /**
+     * Counted by the DocumentListener interface.
+     */
+    var documentChangedCount: Int = 0
+
+    var documentSaveCount: Int = 0
+
     var mouseActionCount: Int = 0
     var visibleContentsChangedCount: Int = 0
     var projectOpenCount: Int = 0
@@ -20,9 +20,9 @@ class ActivityCounter constructor() {
     }
 
     fun resetVals() {
-        documentEditCount = 0
-        documentSaveActionCount = 0
-        documentModificationCount = 0
+        documentChangedCount = 0
+
+        documentSaveCount = 0
         mouseActionCount = 0
         visibleContentsChangedCount = 0
         projectOpenCount = 0
@@ -31,9 +31,8 @@ class ActivityCounter constructor() {
     }
 
     constructor(another: ActivityCounter) : this() {
-        this.documentEditCount = another.documentEditCount
-        this.documentSaveActionCount = another.documentSaveActionCount
-        this.documentModificationCount = another.documentModificationCount
+        this.documentSaveCount = another.documentSaveCount
+        this.documentChangedCount = another.documentChangedCount
         this.mouseActionCount = another.mouseActionCount
         this.visibleContentsChangedCount = another.visibleContentsChangedCount
         this.projectOpenCount = another.projectOpenCount
