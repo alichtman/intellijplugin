@@ -14,3 +14,10 @@ plugins {
     id("org.jetbrains.intellij") version "0.3.4"
     kotlin("jvm") version "1.2.50"
 }
+
+repositories {
+    jcenter()
+}
+dependencies {
+    compile("org.yaml","snakeyaml", "1.18")
+}

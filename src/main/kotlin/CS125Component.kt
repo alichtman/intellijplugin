@@ -1,27 +1,32 @@
-
+import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.actionSystem.EditorActionManager
+import com.intellij.openapi.editor.actionSystem.TypedActionHandler
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
 import org.jetbrains.annotations.NotNull
+import org.yaml.snakeyaml.Yaml
 import java.io.File
+import java.nio.file.Files
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.concurrent.timer
 
 class CS125Component :
         ApplicationComponent,
-        DocumentListener,
+        TypedActionHandler,
+        CaretListener,
         VisibleAreaListener,
         EditorMouseListener,
-        ProjectManagerListener,
-        CaretListener {
+        ProjectManagerListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
     @NotNull
@@ -30,17 +35,23 @@ class CS125Component :
     }
 
     data class Counter(
-            var documentChangedCount: Int = 0,
+            var MP: String?,
+            var keystrokeCount: Int = 0,
             var caretPositionChangedCount: Int = 0,
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0
     )
-    var currentCounter = Counter()
+    var projectCounters = mutableMapOf<Project, Counter>()
+    var activeProjectCount = 0
 
     override fun initComponent() {
+        log.info("initComponent")
+
+        val connection = ApplicationManager.getApplication().messageBus.connect()
+        connection.subscribe(ProjectManager.TOPIC, this);
+
         ApplicationManager.getApplication().invokeLater {
-            log.info("initComponent")
-            EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
+            EditorActionManager.getInstance().typedAction.setupHandler(this)
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
             EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
@@ -60,38 +71,63 @@ class CS125Component :
         })
     }
 
-    override fun documentChanged(documentEvent: DocumentEvent?) {
-        log.info("documentChanged")
-        currentCounter.documentChangedCount++
+    override fun projectOpened(project: Project) {
+        log.info("projectOpened")
 
-        /*
-        val msg = "DOCUMENT MODIFIED"
-        if (documentEvent != null) {
-            logEditors(documentEvent.document, EditorFactory.getInstance().getEditors(documentEvent.document), msg)
+        val gradeConfigurationFile = File(project.baseDir.path).resolve(File("config/grade.yaml"))
+        log.info(gradeConfigurationFile.toString())
+        if (!gradeConfigurationFile.exists()) {
+            return
         }
-        */
+
+        val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath())) as Map<String, String>
+        if (gradeConfiguration.get("name") == null) {
+            return
+        }
+
+        projectCounters[project] = Counter(gradeConfiguration.get("name"))
+        if (activeProjectCount == 0) {
+            restartUploadTimer()
+        }
+        activeProjectCount++;
     }
 
-    override fun caretPositionChanged(e: CaretEvent?) {
+    override fun projectClosed(project: Project) {
+        log.info("projectClosed")
+
+        if (!(projectCounters.containsKey(project))) {
+            return
+        }
+
+        activeProjectCount--
+        if (activeProjectCount == 0) {
+            uploadTimer?.cancel();
+        }
+    }
+
+    override fun execute(editor: Editor, charTyped: Char, dataContext: DataContext) {
+        log.info("execute")
+        projectCounters[editor.project]!!.keystrokeCount++
+    }
+
+    override fun caretPositionChanged(caretEvent: CaretEvent) {
         log.info("caretPositionChanged")
-        currentCounter.caretPositionChangedCount++
+        projectCounters[caretEvent.editor.project]!!.caretPositionChangedCount++
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
         log.info("visibleAreaChanged")
-        currentCounter.visibleAreaChangedCount++
-        //logEditor(visibleAreaEvent.editor.document, visibleAreaEvent.editor, msg)
+        projectCounters[visibleAreaEvent.editor.project]!!.visibleAreaChangedCount++
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
         log.info("mousePressed")
-        currentCounter.mousePressedCount++
-        //logEditor(editorMouseEvent.editor.document, editorMouseEvent.editor, msg)
+        projectCounters[editorMouseEvent.editor.project]!!.mousePressedCount++
     }
-
-    /*******************************
-     * Project Opened/Closed/Changed
-     ******************************/
+    override fun mouseClicked(e: EditorMouseEvent) {}
+    override fun mouseReleased(e: EditorMouseEvent) {}
+    override fun mouseEntered(e: EditorMouseEvent) {}
+    override fun mouseExited(e: EditorMouseEvent) {}
 
     /**
      * Extracts email from email.txt file in root dir of open project.
@@ -108,45 +144,6 @@ class CS125Component :
             ""
         }
     }
-
-
-
-    // TODO: DOES NOT WORK
-    override fun projectOpened(project: Project?) {
-        val counter = ActivityCounter.getInstance()
-        counter.projectOpenCount++
-
-        val author = getEmail(project!!)
-        val msg = "PROJECT OPENED"
-        logProjectSwitch(project, author, msg)
-        println(msg)
-    }
-
-    // TODO: DOES NOT WORK
-    override fun projectClosed(project: Project?) {
-        var counter = ActivityCounter.getInstance()
-        counter.projectCloseCount++
-
-        val author = getEmail(project!!)
-        val msg = "PROJECT CLOSED"
-        logProjectSwitch(project, author, msg)
-    }
-
-    // WORKS
-
-
-
-
-
-
-    override fun mouseClicked(e: EditorMouseEvent) {}
-    override fun mouseReleased(e: EditorMouseEvent) {}
-    override fun mouseEntered(e: EditorMouseEvent) {}
-    override fun mouseExited(e: EditorMouseEvent) {}
-
-    /***************
-     * Logging utils.
-     ***************/
 
     /**
      * Returns true if the file activity should be logged.
