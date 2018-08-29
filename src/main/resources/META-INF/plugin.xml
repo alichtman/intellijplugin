@@ -11,6 +11,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <typedHandler implementation="CS125Component"/>
+        <applicationService serviceInterface="CS125Persistence" serviceImplementation="CS125Persistence"/>
     </extensions>
 
     <application-components>

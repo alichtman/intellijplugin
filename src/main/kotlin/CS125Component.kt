@@ -1,14 +1,12 @@
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
-import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
-import com.intellij.openapi.components.PersistentStateComponent
-import com.intellij.openapi.components.State
-import com.intellij.openapi.components.Storage
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
@@ -17,13 +15,18 @@ import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.nio.file.Files
+import java.time.Instant
 import java.util.*
 import kotlin.concurrent.timer
+import com.sun.javafx.scene.CameraHelper.project
+import com.intellij.openapi.module.ModuleWithNameAlreadyExists
+import com.intellij.openapi.progress.ProgressIndicator
+import org.jdom.JDOMException
+import java.io.IOException
 
-@State(
-        name = "CS125Component",
-        storages = [(Storage(file = "CS125Component.xml"))]
-)
+
+
+
 class CS125Component :
         ApplicationComponent,
         TypedHandlerDelegate(),
@@ -31,18 +34,19 @@ class CS125Component :
         VisibleAreaListener,
         EditorMouseListener,
         SelectionListener,
-        ProjectManagerListener,
-        PersistentStateComponent<CS125Component.State> {
-
+        ProjectManagerListener {
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
+
     @NotNull
     override fun getComponentName(): String {
         return "CS125 Plugin"
     }
 
     data class Counter(
-            var start: Date? = Date(),
-            var end: Date? = null,
+            var index: Long = 0,
+            var MP: String = "",
+            var start: Long = Instant.now().toEpochMilli(),
+            var end: Long = 0,
             var keystrokeCount: Int = 0,
             var caretPositionChangedCount: Int = 0,
             var visibleAreaChangedCount: Int = 0,
@@ -54,30 +58,20 @@ class CS125Component :
                 counter.caretPositionChangedCount +
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
-                counter.visibleAreaChangedCount;
+                counter.visibleAreaChangedCount
     }
-
     var currentProjectCounters = mutableMapOf<Project, Counter>()
-    var projectMPs = mutableMapOf<Project, String>()
 
-    class State {
-        var savedCounters = mutableListOf<Counter>()
-    }
-    var persistentState = State()
-    override fun getState() : State {
-        log.info("getState")
-        return persistentState
-    }
-    override fun loadState(state: State) {
-        log.info("loadState")
-        persistentState = state
-    }
+    data class ProjectInfo(
+            var MP: String
+    )
+    var projectInfo = mutableMapOf<Project, ProjectInfo>()
 
     override fun initComponent() {
         log.info("initComponent")
 
         val connection = ApplicationManager.getApplication().messageBus.connect()
-        connection.subscribe(ProjectManager.TOPIC, this);
+        connection.subscribe(ProjectManager.TOPIC, this)
 
         ApplicationManager.getApplication().invokeLater {
             EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
@@ -89,6 +83,8 @@ class CS125Component :
 
     override fun disposeComponent() {
         log.info("disposeComponent")
+
+        val state = CS125Persistence.getInstance().persistentState
         for ((_, counter) in currentProjectCounters) {
             if (totalCount(counter) > 0) {
                 state.savedCounters.add(counter)
@@ -96,8 +92,43 @@ class CS125Component :
         }
     }
 
+    var uploadBusy = false
+    @Synchronized
+    fun uploadCounters(project: Project) {
+        log.info("uploadCounters")
+        if (uploadBusy) {
+            return
+        }
+        val uploadCounterTask = object: Task.Backgroundable(project,"Uploading...", false) {
+            override fun run(progressIndicator: ProgressIndicator) {
+                val state = CS125Persistence.getInstance().persistentState
+
+                val startIndex = 0
+                val endIndex = state.savedCounters.size
+
+                val uploadingCounters = mutableListOf<Counter>()
+                uploadingCounters.addAll(state.savedCounters);
+
+                try {
+                    Thread.sleep(1000);
+                } catch (e: Exception) { }
+                state.savedCounters.subList(startIndex, endIndex).clear()
+                log.info("Upload done")
+                uploadBusy = false
+            }
+        }
+        ProgressManager.getInstance().run(uploadCounterTask)
+        uploadBusy = true
+    }
+
     fun rotateCounters() {
-        val end = Date()
+        log.info("rotateCounters")
+
+        val state = CS125Persistence.getInstance().persistentState
+
+        log.info(state.savedCounters.size.toString())
+
+        val end = Instant.now().toEpochMilli()
         for ((project, counter) in currentProjectCounters) {
             if (totalCount(counter) == 0) {
                 continue
@@ -105,11 +136,12 @@ class CS125Component :
             counter.end = end
             log.info(counter.toString())
             state.savedCounters.add(counter)
-            currentProjectCounters[project] = Counter()
+            currentProjectCounters[project] = Counter(state.counterIndex++, projectInfo[project]!!.MP)
+            uploadCounters(project)
         }
     }
 
-    val STATE_TIMER_PERIOD = 1000L
+    val STATE_TIMER_PERIOD = 5000L
     private var stateTimer: Timer? = null
 
     override fun projectOpened(project: Project) {
@@ -121,17 +153,19 @@ class CS125Component :
             return
         }
 
+        @Suppress("UNCHECKED_CAST")
         val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath())) as Map<String, String>
         val MPname = gradeConfiguration.get("name")
         if (MPname == null) {
             return
         }
-        projectMPs[project] = MPname
 
-        currentProjectCounters[project] = Counter()
+        val state = CS125Persistence.getInstance().persistentState
+        projectInfo[project] = ProjectInfo(MPname)
+        currentProjectCounters[project] = Counter(state.counterIndex++, MPname)
 
         if (currentProjectCounters.size == 1) {
-            stateTimer?.cancel();
+            stateTimer?.cancel()
             stateTimer = timer("edu.illinois.cs.cs125", true,
                     STATE_TIMER_PERIOD, STATE_TIMER_PERIOD, {
                 rotateCounters()
@@ -147,7 +181,7 @@ class CS125Component :
         }
         currentProjectCounters.remove(project)
         if (currentProjectCounters.size == 0) {
-            stateTimer?.cancel();
+            stateTimer?.cancel()
         }
     }
 
