@@ -1,4 +1,4 @@
-
+/*
 import com.google.gson.GsonBuilder
 import com.intellij.openapi.components.ServiceManager
 import java.io.OutputStreamWriter
@@ -9,7 +9,7 @@ class DataTransfer {
 
     /**
      * Read stored data, serialize and transfer it.
-     * If successful, clear all locally stored data (both persistent state and current activity counter vals.)
+     * If successful, clear all locally stored data (both persistent persistentState and current activity counter vals.)
      * If unsuccessful, combine with the data that's already stored locally and clear the current activity counter.
      */
     fun handleSubmittingData() {
@@ -106,3 +106,5 @@ class DataTransfer {
             }
         }
     }
+}
+*/

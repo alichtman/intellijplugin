@@ -1,32 +1,38 @@
+import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
+import com.intellij.openapi.components.PersistentStateComponent
+import com.intellij.openapi.components.State
+import com.intellij.openapi.components.Storage
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
-import com.intellij.openapi.editor.actionSystem.EditorActionManager
-import com.intellij.openapi.editor.actionSystem.TypedActionHandler
 import com.intellij.openapi.editor.event.*
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.psi.PsiFile
 import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 import java.io.File
 import java.nio.file.Files
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.concurrent.timer
 
+@State(
+        name = "CS125Component",
+        storages = [(Storage(file = "CS125Component.xml"))]
+)
 class CS125Component :
         ApplicationComponent,
-        TypedActionHandler,
+        TypedHandlerDelegate(),
         CaretListener,
         VisibleAreaListener,
         EditorMouseListener,
-        ProjectManagerListener {
+        SelectionListener,
+        ProjectManagerListener,
+        PersistentStateComponent<CS125Component.State> {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
     @NotNull
@@ -35,14 +41,37 @@ class CS125Component :
     }
 
     data class Counter(
-            var MP: String?,
+            var start: Date? = Date(),
+            var end: Date? = null,
             var keystrokeCount: Int = 0,
             var caretPositionChangedCount: Int = 0,
             var visibleAreaChangedCount: Int = 0,
-            var mousePressedCount: Int = 0
+            var mousePressedCount: Int = 0,
+            var selectionChangedCount: Int = 0
     )
-    var projectCounters = mutableMapOf<Project, Counter>()
-    var activeProjectCount = 0
+    fun totalCount(counter: Counter): Int {
+        return counter.keystrokeCount +
+                counter.caretPositionChangedCount +
+                counter.visibleAreaChangedCount +
+                counter.mousePressedCount +
+                counter.visibleAreaChangedCount;
+    }
+
+    var currentProjectCounters = mutableMapOf<Project, Counter>()
+    var projectMPs = mutableMapOf<Project, String>()
+
+    class State {
+        var savedCounters = mutableListOf<Counter>()
+    }
+    var persistentState = State()
+    override fun getState() : State {
+        log.info("getState")
+        return persistentState
+    }
+    override fun loadState(state: State) {
+        log.info("loadState")
+        persistentState = state
+    }
 
     override fun initComponent() {
         log.info("initComponent")
@@ -51,25 +80,37 @@ class CS125Component :
         connection.subscribe(ProjectManager.TOPIC, this);
 
         ApplicationManager.getApplication().invokeLater {
-            EditorActionManager.getInstance().typedAction.setupHandler(this)
+            EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
-            EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
-            // restartUploadTimer()
-            // EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
+            EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
         }
     }
 
-    val UPLOAD_TIMER_INITIAL_DELAY = 1000L
-    val UPLOAD_TIMER_PERIOD = 10 * 60 * 1000L
-    private var uploadTimer: Timer? = null
-    private fun restartUploadTimer() {
-        uploadTimer?.cancel();
-        uploadTimer = timer("edu.illinois.cs.cs125", true,
-                UPLOAD_TIMER_INITIAL_DELAY, UPLOAD_TIMER_PERIOD, {
-            DataTransfer().handleSubmittingData()
-        })
+    override fun disposeComponent() {
+        log.info("disposeComponent")
+        for ((_, counter) in currentProjectCounters) {
+            if (totalCount(counter) > 0) {
+                state.savedCounters.add(counter)
+            }
+        }
     }
+
+    fun rotateCounters() {
+        val end = Date()
+        for ((project, counter) in currentProjectCounters) {
+            if (totalCount(counter) == 0) {
+                continue
+            }
+            counter.end = end
+            log.info(counter.toString())
+            state.savedCounters.add(counter)
+            currentProjectCounters[project] = Counter()
+        }
+    }
+
+    val STATE_TIMER_PERIOD = 1000L
+    private var stateTimer: Timer? = null
 
     override fun projectOpened(project: Project) {
         log.info("projectOpened")
@@ -81,53 +122,64 @@ class CS125Component :
         }
 
         val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath())) as Map<String, String>
-        if (gradeConfiguration.get("name") == null) {
+        val MPname = gradeConfiguration.get("name")
+        if (MPname == null) {
             return
         }
+        projectMPs[project] = MPname
 
-        projectCounters[project] = Counter(gradeConfiguration.get("name"))
-        if (activeProjectCount == 0) {
-            restartUploadTimer()
+        currentProjectCounters[project] = Counter()
+
+        if (currentProjectCounters.size == 1) {
+            stateTimer?.cancel();
+            stateTimer = timer("edu.illinois.cs.cs125", true,
+                    STATE_TIMER_PERIOD, STATE_TIMER_PERIOD, {
+                rotateCounters()
+            })
         }
-        activeProjectCount++;
     }
 
     override fun projectClosed(project: Project) {
         log.info("projectClosed")
 
-        if (!(projectCounters.containsKey(project))) {
+        if (!(currentProjectCounters.containsKey(project))) {
             return
         }
-
-        activeProjectCount--
-        if (activeProjectCount == 0) {
-            uploadTimer?.cancel();
+        currentProjectCounters.remove(project)
+        if (currentProjectCounters.size == 0) {
+            stateTimer?.cancel();
         }
     }
 
-    override fun execute(editor: Editor, charTyped: Char, dataContext: DataContext) {
-        log.info("execute")
-        projectCounters[editor.project]!!.keystrokeCount++
+    override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
+        log.info("charTyped")
+        currentProjectCounters[project]!!.keystrokeCount++
+        return Result.CONTINUE
     }
 
     override fun caretPositionChanged(caretEvent: CaretEvent) {
         log.info("caretPositionChanged")
-        projectCounters[caretEvent.editor.project]!!.caretPositionChangedCount++
+        currentProjectCounters[caretEvent.editor.project]!!.caretPositionChangedCount++
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
         log.info("visibleAreaChanged")
-        projectCounters[visibleAreaEvent.editor.project]!!.visibleAreaChangedCount++
+        currentProjectCounters[visibleAreaEvent.editor.project]!!.visibleAreaChangedCount++
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
         log.info("mousePressed")
-        projectCounters[editorMouseEvent.editor.project]!!.mousePressedCount++
+        currentProjectCounters[editorMouseEvent.editor.project]!!.mousePressedCount++
     }
     override fun mouseClicked(e: EditorMouseEvent) {}
     override fun mouseReleased(e: EditorMouseEvent) {}
     override fun mouseEntered(e: EditorMouseEvent) {}
     override fun mouseExited(e: EditorMouseEvent) {}
+
+    override fun selectionChanged(selectionEvent: SelectionEvent) {
+        log.info("selectionChanged")
+        currentProjectCounters[selectionEvent.editor.project]!!.selectionChangedCount++
+    }
 
     /**
      * Extracts email from email.txt file in root dir of open project.
@@ -145,17 +197,7 @@ class CS125Component :
         }
     }
 
-    /**
-     * Returns true if the file activity should be logged.
-     * Checks for the existence of a .cs125 file in the project dir.
-     */
-    private fun shouldLog(project: Project): Boolean {
-        val flagPath = ".cs125"
-        val flagFile = File(project.baseDir.path + File.separator + flagPath)
-//        println("SHOULD LOG: " + flagFile.path + "? -> " + flagFile.exists())
-        return flagFile.exists()
-    }
-
+    /*
     private fun logEditors(document: Document, editors: Array<Editor>, message: String) {
         if (editors.isEmpty()) {
             return
@@ -183,29 +225,5 @@ class CS125Component :
             log.info(completeMessage)
         }
     }
-
-    private fun logProjectSwitch(project: Project, author: String, message: String) {
-        if (shouldLog(project)) {
-            val completeMessage = "${project.basePath}, $message, $author"
-            println(completeMessage)
-            log.info("$message, $project, $author")
-        }
-    }
-
-    /**
-     * Date utilities
-     */
-
-    private fun convertStringToDate(dateStr: String):Date {
-        val format = SimpleDateFormat("yyyy-dd-MM HH:mm:ss", Locale.ENGLISH)
-        return format.parse(dateStr)
-    }
-
-    /**
-     * Returns the date of a log line
-     */
-    private fun extractDateFromLog(line: String): Date {
-        var dateStr = line.split(",")[0]
-        return convertStringToDate(dateStr)
-    }
+    */
 }
