@@ -1,10 +1,10 @@
 <idea-plugin>
-    <id>edu.illinois.cs.cs125.intellij-logger</id>
-    <name>CS 125 @ Illinois</name>
+    <id>edu.illinois.cs.cs125.intellij-plugin</id>
+    <name>CS 125 @ Illinois IntelliJ Plugin</name>
     <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
     <description><![CDATA[
-    Plugin to simplify MP development for CS 125 @ Illinois.
+    Plugin to enable MP development for CS 125 @ Illinois.
     ]]></description>
 
     <depends>com.intellij.modules.lang</depends>
