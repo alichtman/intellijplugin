@@ -1,22 +1,28 @@
 <idea-plugin>
-    <id>edu.illinois.cs.cs125.intellij-plugin</id>
+    <id>edu.illinois.cs.cs125.intellijplugin</id>
     <name>CS 125 @ Illinois IntelliJ Plugin</name>
+    <version>0.1</version>
+
     <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
     <description><![CDATA[
     Plugin to enable MP development for CS 125 @ Illinois.
     ]]></description>
 
+    <idea-version since-build="173"/>
+
     <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <typedHandler implementation="CS125Component"/>
-        <applicationService serviceInterface="CS125Persistence" serviceImplementation="CS125Persistence"/>
+        <typedHandler implementation="edu.illinois.cs.cs125.intellijplugin.CS125Component"/>
+        <applicationService
+                serviceInterface="edu.illinois.cs.cs125.intellijplugin.CS125Persistence"
+                serviceImplementation="edu.illinois.cs.cs125.intellijplugin.CS125Persistence"/>
     </extensions>
 
     <application-components>
         <component>
-            <implementation-class>CS125Component</implementation-class>
+            <implementation-class>edu.illinois.cs.cs125.intellijplugin.CS125Component</implementation-class>
         </component>
     </application-components>
 
@@ -27,13 +33,13 @@
             <add-to-group group-id="MainMenu"
                           anchor="last"/>
             <action id="CS125.MainMenu.Grade"
-                    class="CS125GradeAction"
+                    class="edu.illinois.cs.cs125.intellijplugin.CS125GradeAction"
                     text="Grade MP"
                     description="Initiate CS 125 MP grading"/>
         </group>
 
         <action id="CS125.ToolbarRunGroup.Grade"
-                class="CS125GradeAction"
+                class="edu.illinois.cs.cs125.intellijplugin.CS125GradeAction"
                 description="Initiate CS 125 MP grading"
                 icon="/icons/cs125.png">
             <add-to-group group-id="ToolbarRunGroup" anchor="last"/>

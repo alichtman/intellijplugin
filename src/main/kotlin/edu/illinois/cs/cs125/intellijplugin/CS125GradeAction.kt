@@ -1,3 +1,5 @@
+package edu.illinois.cs.cs125.intellijplugin
+
 import com.intellij.execution.ProgramRunnerUtil
 import com.intellij.execution.RunManager
 import com.intellij.execution.RunnerAndConfigurationSettings

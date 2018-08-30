@@ -1,3 +1,5 @@
+package edu.illinois.cs.cs125.intellijplugin
+
 import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.components.State

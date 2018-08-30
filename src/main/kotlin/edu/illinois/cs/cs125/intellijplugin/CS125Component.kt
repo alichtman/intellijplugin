@@ -1,3 +1,5 @@
+package edu.illinois.cs.cs125.intellijplugin
+
 import com.google.gson.GsonBuilder
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.ide.DataManager
@@ -68,7 +70,7 @@ class CS125Component :
 
     data class ProjectInfo(
             var MP: String,
-            var email: String = ""
+            var email: String
     )
     private var projectInfo = mutableMapOf<Project, ProjectInfo>()
 
@@ -87,6 +89,7 @@ class CS125Component :
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
             EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
             EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
+            uploadCounters()
         }
     }
 
@@ -102,6 +105,7 @@ class CS125Component :
     }
 
     var uploadBusy = false
+    var lastUploadFailed = false
     var lastUploadAttempt: Long = 0
 
     @Synchronized
@@ -120,12 +124,14 @@ class CS125Component :
         uploadingCounters.addAll(state.savedCounters)
 
         if (uploadingCounters.isEmpty()) {
+            log.trace("No counters to upload")
             return
         }
 
         val dataContext = try {
             DataManager.getInstance().dataContextFromFocusAsync.blockingGet(100)
         } catch (e: Exception) {
+            log.warn("Problem uploading: " + e.toString())
             null
         }
         val project = dataContext?.getData(DataKeys.PROJECT) ?: return
@@ -133,20 +139,21 @@ class CS125Component :
         val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
             override fun run(progressIndicator: ProgressIndicator) {
                 val gson = GsonBuilder().create()
-                val countersInJSON = gson.toJson(uploadingCounters)
-
                 val httpClient = HttpClientBuilder.create().build()
 
-                val counterPost = HttpPost("http://localhost:8008")
+                val countersInJSON = gson.toJson(uploadingCounters)
+                val counterPost = HttpPost("https://cs125-reporting.cs.illinois.edu/intellij")
                 counterPost.addHeader("content-type", "application/json")
                 counterPost.entity = StringEntity(countersInJSON)
 
-                try {
+                lastUploadFailed = try {
                     httpClient.execute(counterPost)
                     state.savedCounters.subList(startIndex, endIndex).clear()
                     log.info("Upload succeeded")
+                    false
                 } catch (e: Exception) {
                     log.warn("Upload failed")
+                    true
                 } finally {
                     uploadBusy = false
                     lastUploadAttempt = Instant.now().toEpochMilli()
@@ -158,8 +165,7 @@ class CS125Component :
     }
 
     private val maxSavedCounters = 3600 // 1 hour of logs
-    //private val uploadLogCountThreshold = 900 // 15 minutes of logs
-    private val uploadLogCountThreshold = 10 // 15 minutes of logs
+    private val uploadLogCountThreshold = 900 // 15 minutes of logs
     private val shortestUploadWait = 10 * 60 * 1000 // 10 minutes
 
     @Synchronized
@@ -188,8 +194,15 @@ class CS125Component :
         }
 
         val now = Instant.now().toEpochMilli()
-        if ((state.savedCounters.size >= uploadLogCountThreshold && now - lastUploadAttempt > shortestUploadWait)) {
+        if ((state.savedCounters.size >= uploadLogCountThreshold &&
+                        lastUploadFailed &&
+                        now - lastUploadAttempt > shortestUploadWait)) {
             uploadCounters()
+        }
+        if (state.savedCounters.size < uploadLogCountThreshold) {
+            log.trace("Not enough counters to upload")
+        } else if (lastUploadFailed && now - lastUploadAttempt <= shortestUploadWait) {
+            log.trace("Need to wait for longer to retry upload")
         }
     }
 
@@ -215,7 +228,7 @@ class CS125Component :
         }
 
         val state = CS125Persistence.getInstance().persistentState
-        projectInfo[project] = ProjectInfo(name)
+        projectInfo[project] = ProjectInfo(name, email)
         currentProjectCounters[project] = Counter(state.counterIndex++, name, email)
 
         if (currentProjectCounters.size == 1) {
