@@ -1,16 +1,7 @@
 package edu.illinois.cs.cs125.intellijplugin
 
 import com.google.gson.GsonBuilder
-import com.intellij.build.BuildProgressListener
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
-import com.intellij.execution.ExecutionListener
-import com.intellij.execution.ExecutionManager
-import com.intellij.execution.process.ProcessHandler
-import com.intellij.execution.runners.ExecutionEnvironment
-import com.intellij.execution.testframework.AbstractTestProxy
-import com.intellij.execution.testframework.TestStatusListener
-import com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener
-import com.intellij.execution.testframework.sm.runner.SMTestProxy
 import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
@@ -19,9 +10,6 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
-import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskId
-import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskNotificationEvent
-import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskNotificationListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -49,11 +37,7 @@ class CS125Component :
         EditorMouseListener,
         SelectionListener,
         DocumentListener,
-        ProjectManagerListener,
-        SMTRunnerEventsListener,
-        ExternalSystemTaskNotificationListener,
-        ExecutionListener,
-        BuildProgressListener {
+        ProjectManagerListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
@@ -75,9 +59,7 @@ class CS125Component :
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0,
             var selectionChangedCount: Int = 0,
-            var documentChangedCount: Int = 0,
-            var testsFinished: Int = 0,
-            var testsFailed: Int = 0
+            var documentChangedCount: Int = 0
     )
 
     private fun totalCount(counter: Counter): Int {
@@ -86,9 +68,7 @@ class CS125Component :
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
                 counter.visibleAreaChangedCount +
-                counter.documentChangedCount +
-                counter.testsFailed +
-                counter.testsFinished
+                counter.documentChangedCount
     }
     private var currentProjectCounters = mutableMapOf<Project, Counter>()
 
@@ -172,10 +152,10 @@ class CS125Component :
             override fun run(progressIndicator: ProgressIndicator) {
                 val now = Instant.now().toEpochMilli()
 
-                val gson = GsonBuilder().create()
+                val jsonCreator = GsonBuilder().create()
                 val httpClient = HttpClientBuilder.create().build()
 
-                val countersInJSON = gson.toJson(uploadingCounters)
+                val countersInJSON = jsonCreator.toJson(uploadingCounters)
                 val counterPost = HttpPost("https://cs125-reporting.cs.illinois.edu/intellij")
                 counterPost.addHeader("content-type", "application/json")
                 counterPost.entity = StringEntity(countersInJSON)
@@ -183,7 +163,7 @@ class CS125Component :
                 lastUploadFailed = try {
                     httpClient.execute(counterPost)
                     state.savedCounters.subList(startIndex, endIndex).clear()
-                    log.info("Upload succeeded")
+                    log.trace("Upload succeeded")
                     lastSuccessfulUpload = now
                     false
                 } catch (e: Exception) {
@@ -284,9 +264,6 @@ class CS125Component :
             }
         }
         uploadCounters()
-
-        project.messageBus.connect().subscribe(SMTRunnerEventsListener.TEST_STATUS, this)
-        project.messageBus.connect().subscribe(ExecutionManager.EXECUTION_TOPIC, this)
     }
 
     override fun projectClosed(project: Project) {
@@ -307,7 +284,7 @@ class CS125Component :
     inner class TypedHandler: TypedHandlerDelegate() {
         override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
             val projectCounter = currentProjectCounters[project] ?: return Result.CONTINUE
-            log.info("charTyped")
+            log.trace("charTyped")
             projectCounter.keystrokeCount++
             return Result.CONTINUE
         }
@@ -360,51 +337,5 @@ class CS125Component :
             val projectCounter = currentProjectCounters[editor.project] ?: continue
             projectCounter.documentChangedCount++
         }
-    }
-
-    inner class TestStatus: TestStatusListener() {
-        override fun testSuiteFinished(root: AbstractTestProxy?) {
-            log.info("testSuiteFinished")
-        }
-    }
-
-    override fun onTestFinished(test: SMTestProxy) {
-        log.info("onTestFinished")
-    }
-    override fun onTestFailed(test: SMTestProxy) {
-        log.info("onTestFailed")
-    }
-    override fun onCustomProgressTestFinished() {}
-    override fun onSuiteFinished(suite: SMTestProxy) {}
-    override fun onTestingFinished(testsRoot: SMTestProxy.SMRootTestProxy) {}
-    override fun onCustomProgressTestStarted() {}
-    override fun onTestsCountInSuite(count: Int) {}
-    override fun onSuiteTreeStarted(suite: SMTestProxy?) {}
-    override fun onTestingStarted(testsRoot: SMTestProxy.SMRootTestProxy) {
-        log.info("onTestingStarted")
-    }
-    override fun onCustomProgressTestFailed() {}
-    override fun onSuiteStarted(suite: SMTestProxy) {}
-    override fun onCustomProgressTestsCategory(categoryName: String?, testCount: Int) {}
-    override fun onSuiteTreeNodeAdded(testProxy: SMTestProxy?) {}
-    override fun onTestStarted(test: SMTestProxy) {}
-    override fun onTestIgnored(test: SMTestProxy) {}
-
-    @Suppress("OverridingDeprecatedMember")
-    override fun onQueued(id: ExternalSystemTaskId, workingDir: String?) {}
-    @Suppress("OverridingDeprecatedMember")
-    override fun onStart(id: ExternalSystemTaskId) {}
-    override fun onSuccess(id: ExternalSystemTaskId) {}
-    override fun onFailure(id: ExternalSystemTaskId, e: java.lang.Exception) {}
-    override fun onTaskOutput(id: ExternalSystemTaskId, text: String, stdOut: Boolean) {}
-    override fun onStatusChange(event: ExternalSystemTaskNotificationEvent) {
-        log.info("onStatusChange")
-    }
-    override fun onCancel(id: ExternalSystemTaskId) {}
-    override fun onEnd(id: ExternalSystemTaskId) {}
-    override fun beforeCancel(id: ExternalSystemTaskId) {}
-
-    override fun processStarted(executorId: String, env: ExecutionEnvironment, handler: ProcessHandler) {
-        log.info("processStarted")
     }
 }
