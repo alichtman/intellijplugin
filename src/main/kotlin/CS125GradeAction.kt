@@ -11,23 +11,15 @@ class CS125GradeAction : AnAction() {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
-    override fun actionPerformed(e: AnActionEvent) {
-        log.info("grading action initiated")
-        val project = e.project
-        if (project != null) {
-            triggerRunConfiguration(project)
-        }
-    }
+    override fun actionPerformed(anActionEvent: AnActionEvent) {
+        log.info("actionPerformed")
+        val project = anActionEvent.project ?: return
 
-    // TODO: Figure out how to put together TestConfiguration
-    private fun triggerRunConfiguration(project: Project) {
-        /*
-        val name = "CS125 Test Configuration"
-        val testConfiguration = TestConfiguration.getInstance()
-        val factory = testConfiguration.getFactory()
-        val executor = DefaultRunExecutor.getRunExecutorInstance()
-        val runSettings: RunnerAndConfigurationSettings = RunManager.getInstance(project).createRunConfiguration(name, factory)
-        ProgramRunnerUtil.executeConfiguration(runSettings, executor)
-        */
+        val runManager = RunManager.getInstance(project)
+        for (runConfiguration in runManager.allSettings) {
+            if (runConfiguration.name.trim().toLowerCase().startsWith("grade")) {
+                ProgramRunnerUtil.executeConfiguration(runConfiguration, DefaultRunExecutor.getRunExecutorInstance())
+            }
+        }
     }
 }
