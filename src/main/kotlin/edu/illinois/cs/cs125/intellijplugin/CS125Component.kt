@@ -89,33 +89,32 @@ class CS125Component :
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
             EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
             EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
-            uploadCounters()
-        }
-    }
-
-    override fun disposeComponent() {
-        log.trace("disposeComponent")
-
-        val state = CS125Persistence.getInstance().persistentState
-        for ((_, counter) in currentProjectCounters) {
-            if (totalCount(counter) > 0) {
-                state.savedCounters.add(counter)
-            }
         }
     }
 
     var uploadBusy = false
     var lastUploadFailed = false
     var lastUploadAttempt: Long = 0
+    var lastSuccessfulUpload: Long = 0
 
     @Synchronized
     fun uploadCounters() {
         log.trace("uploadCounters")
         if (uploadBusy) {
+            log.trace("Previous upload still busy")
             return
         }
 
         val state = CS125Persistence.getInstance().persistentState
+        if (state.savedCounters.size == 0) {
+            log.trace("No counters to upload")
+            return
+        }
+
+        if (lastUploadFailed && Instant.now().toEpochMilli() - lastUploadAttempt <= shortestUploadWait) {
+            log.trace("Need to wait for longer to retry upload")
+            return
+        }
 
         val startIndex = 0
         val endIndex = state.savedCounters.size
@@ -138,6 +137,8 @@ class CS125Component :
 
         val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
             override fun run(progressIndicator: ProgressIndicator) {
+                val now = Instant.now().toEpochMilli()
+
                 val gson = GsonBuilder().create()
                 val httpClient = HttpClientBuilder.create().build()
 
@@ -150,13 +151,14 @@ class CS125Component :
                     httpClient.execute(counterPost)
                     state.savedCounters.subList(startIndex, endIndex).clear()
                     log.info("Upload succeeded")
+                    lastSuccessfulUpload = now
                     false
                 } catch (e: Exception) {
                     log.warn("Upload failed")
                     true
                 } finally {
                     uploadBusy = false
-                    lastUploadAttempt = Instant.now().toEpochMilli()
+                    lastUploadAttempt = now
                 }
             }
         }
@@ -167,6 +169,7 @@ class CS125Component :
     private val maxSavedCounters = 3600 // 1 hour of logs
     private val uploadLogCountThreshold = 900 // 15 minutes of logs
     private val shortestUploadWait = 10 * 60 * 1000 // 10 minutes
+    private val shortestUploadInterval = 30 * 60 * 1000 // 30 minutes
 
     @Synchronized
     fun rotateCounters() {
@@ -194,15 +197,10 @@ class CS125Component :
         }
 
         val now = Instant.now().toEpochMilli()
-        if ((state.savedCounters.size >= uploadLogCountThreshold &&
-                        lastUploadFailed &&
-                        now - lastUploadAttempt > shortestUploadWait)) {
+        if (state.savedCounters.size >= uploadLogCountThreshold) {
             uploadCounters()
-        }
-        if (state.savedCounters.size < uploadLogCountThreshold) {
-            log.trace("Not enough counters to upload")
-        } else if (lastUploadFailed && now - lastUploadAttempt <= shortestUploadWait) {
-            log.trace("Need to wait for longer to retry upload")
+        } else if (now - lastSuccessfulUpload > shortestUploadInterval) {
+            uploadCounters()
         }
     }
 
@@ -238,18 +236,22 @@ class CS125Component :
                 rotateCounters()
             }
         }
+        uploadCounters()
     }
 
     override fun projectClosed(project: Project) {
         log.trace("projectClosed")
 
-        if (!(currentProjectCounters.containsKey(project))) {
-            return
+        val currentCounter = currentProjectCounters[project] ?: return
+        val state = CS125Persistence.getInstance().persistentState
+        if (totalCount(currentCounter) > 0) {
+            state.savedCounters.add(currentCounter)
         }
         currentProjectCounters.remove(project)
         if (currentProjectCounters.isEmpty()) {
             stateTimer?.cancel()
         }
+        uploadCounters()
     }
 
     override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
@@ -292,11 +294,13 @@ class CS125Component :
 
         val changedFile = FileDocumentManager.getInstance().getFile(documentEvent.document)
         for ((project, info) in projectInfo) {
-            val emailPath = File(project.baseDir.path).resolve(File("email.txt")).canonicalPath
-            if (changedFile?.canonicalPath.equals(emailPath)) {
-                info.email = documentEvent.document.text.trim()
-                log.debug("Updated email for project " + info.MP + ": " + info.email)
-            }
+            try {
+                val emailPath = File(project.baseDir.path).resolve(File("email.txt")).canonicalPath
+                if (changedFile?.canonicalPath.equals(emailPath)) {
+                    info.email = documentEvent.document.text.trim()
+                    log.debug("Updated email for project " + info.MP + ": " + info.email)
+                }
+            } catch (e: Throwable) {}
         }
 
         val editors = EditorFactory.getInstance().getEditors(documentEvent.document)
