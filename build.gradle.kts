@@ -20,4 +20,5 @@ repositories {
 }
 dependencies {
     compile("org.yaml","snakeyaml", "1.18")
+    compile("org.apache.httpcomponents", "httpclient", "4.5.3")
 }

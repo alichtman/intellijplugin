@@ -1,4 +1,7 @@
+import com.google.gson.GsonBuilder
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
+import com.intellij.ide.DataManager
+import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
@@ -6,12 +9,16 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
 import com.intellij.psi.PsiFile
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.HttpClientBuilder
 import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 import java.io.File
@@ -19,7 +26,6 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.*
 import kotlin.concurrent.timer
-import com.intellij.openapi.progress.ProgressIndicator
 
 class CS125Component :
         ApplicationComponent,
@@ -67,13 +73,13 @@ class CS125Component :
     private var projectInfo = mutableMapOf<Project, ProjectInfo>()
 
     override fun initComponent() {
-        log.info("initComponent")
+        log.trace("initComponent")
 
         val connection = ApplicationManager.getApplication().messageBus.connect()
         connection.subscribe(ProjectManager.TOPIC, this)
 
         val state = CS125Persistence.getInstance().persistentState
-        log.info("Loading " + state.savedCounters.size.toString() + " counters")
+        log.debug("Loading " + state.savedCounters.size.toString() + " counters")
 
         ApplicationManager.getApplication().invokeLater {
             EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
@@ -85,7 +91,7 @@ class CS125Component :
     }
 
     override fun disposeComponent() {
-        log.info("disposeComponent")
+        log.trace("disposeComponent")
 
         val state = CS125Persistence.getInstance().persistentState
         for ((_, counter) in currentProjectCounters) {
@@ -96,9 +102,11 @@ class CS125Component :
     }
 
     var uploadBusy = false
+    var lastUploadAttempt: Long = 0
+
     @Synchronized
-    fun uploadCounters(project: Project) {
-        log.info("uploadCounters")
+    fun uploadCounters() {
+        log.trace("uploadCounters")
         if (uploadBusy) {
             return
         }
@@ -115,27 +123,50 @@ class CS125Component :
             return
         }
 
-        val uploadCounterTask = object: Task.Backgroundable(project,"Uploading...", false) {
+        val dataContext = try {
+            DataManager.getInstance().dataContextFromFocusAsync.blockingGet(100)
+        } catch (e: Exception) {
+            null
+        }
+        val project = dataContext?.getData(DataKeys.PROJECT) ?: return
+
+        val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
             override fun run(progressIndicator: ProgressIndicator) {
+                val gson = GsonBuilder().create()
+                val countersInJSON = gson.toJson(uploadingCounters)
+
+                val httpClient = HttpClientBuilder.create().build()
+
+                val counterPost = HttpPost("http://localhost:8008")
+                counterPost.addHeader("content-type", "application/json")
+                counterPost.entity = StringEntity(countersInJSON)
+
                 try {
-                    Thread.sleep(1000)
-                } catch (e: Exception) { }
-                state.savedCounters.subList(startIndex, endIndex).clear()
-                log.info("Upload done")
-                uploadBusy = false
+                    httpClient.execute(counterPost)
+                    state.savedCounters.subList(startIndex, endIndex).clear()
+                    log.info("Upload succeeded")
+                } catch (e: Exception) {
+                    log.warn("Upload failed")
+                } finally {
+                    uploadBusy = false
+                    lastUploadAttempt = Instant.now().toEpochMilli()
+                }
             }
         }
         ProgressManager.getInstance().run(uploadCounterTask)
         uploadBusy = true
     }
 
+    private val maxSavedCounters = 3600 // 1 hour of logs
+    //private val uploadLogCountThreshold = 900 // 15 minutes of logs
+    private val uploadLogCountThreshold = 10 // 15 minutes of logs
+    private val shortestUploadWait = 10 * 60 * 1000 // 10 minutes
+
     @Synchronized
     fun rotateCounters() {
-        log.info("rotateCounters")
+        log.trace("rotateCounters")
 
         val state = CS125Persistence.getInstance().persistentState
-
-        log.info("Saved counter count: " + state.savedCounters.size.toString())
 
         val end = Instant.now().toEpochMilli()
         for ((project, counter) in currentProjectCounters) {
@@ -143,14 +174,22 @@ class CS125Component :
                 continue
             }
             counter.end = end
-            log.info("Counter " + counter.toString())
+            log.trace("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
                     projectInfo[project]?.MP ?: "",
                     projectInfo[project]?.email ?: ""
             )
-            //uploadCounters(project)
+        }
+
+        if (state.savedCounters.size > maxSavedCounters) {
+            state.savedCounters.subList(0, maxSavedCounters - state.savedCounters.size).clear()
+        }
+
+        val now = Instant.now().toEpochMilli()
+        if ((state.savedCounters.size >= uploadLogCountThreshold && now - lastUploadAttempt > shortestUploadWait)) {
+            uploadCounters()
         }
     }
 
@@ -158,10 +197,9 @@ class CS125Component :
     private var stateTimer: Timer? = null
 
     override fun projectOpened(project: Project) {
-        log.info("projectOpened")
+        log.trace("projectOpened")
 
         val gradeConfigurationFile = File(project.baseDir.path).resolve(File("config/grade.yaml"))
-        log.info(gradeConfigurationFile.toString())
         if (!gradeConfigurationFile.exists()) {
             return
         }
@@ -190,7 +228,7 @@ class CS125Component :
     }
 
     override fun projectClosed(project: Project) {
-        log.info("projectClosed")
+        log.trace("projectClosed")
 
         if (!(currentProjectCounters.containsKey(project))) {
             return
@@ -203,26 +241,26 @@ class CS125Component :
 
     override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
         val projectCounter = currentProjectCounters[project] ?: return Result.CONTINUE
-        log.info("charTyped")
+        log.trace("charTyped")
         projectCounter.keystrokeCount++
         return Result.CONTINUE
     }
 
     override fun caretPositionChanged(caretEvent: CaretEvent) {
         val projectCounter = currentProjectCounters[caretEvent.editor.project] ?: return
-        log.info("caretPositionChanged")
+        log.trace("caretPositionChanged")
         projectCounter.caretPositionChangedCount++
     }
 
     override fun visibleAreaChanged(visibleAreaEvent: VisibleAreaEvent) {
         val projectCounter = currentProjectCounters[visibleAreaEvent.editor.project] ?: return
-        log.info("visibleAreaChanged")
+        log.trace("visibleAreaChanged")
         projectCounter.visibleAreaChangedCount++
     }
 
     override fun mousePressed(editorMouseEvent: EditorMouseEvent) {
         val projectCounter = currentProjectCounters[editorMouseEvent.editor.project] ?: return
-        log.info("mousePressed")
+        log.trace("mousePressed")
         projectCounter.mousePressedCount++
     }
     override fun mouseClicked(e: EditorMouseEvent) {}
@@ -232,19 +270,19 @@ class CS125Component :
 
     override fun selectionChanged(selectionEvent: SelectionEvent) {
         val projectCounter = currentProjectCounters[selectionEvent.editor.project] ?: return
-        log.info("selectionChanged")
+        log.trace("selectionChanged")
         projectCounter.selectionChangedCount++
     }
 
     override fun documentChanged(documentEvent: DocumentEvent) {
-        log.info("documentChanged")
+        log.trace("documentChanged")
 
         val changedFile = FileDocumentManager.getInstance().getFile(documentEvent.document)
         for ((project, info) in projectInfo) {
             val emailPath = File(project.baseDir.path).resolve(File("email.txt")).canonicalPath
             if (changedFile?.canonicalPath.equals(emailPath)) {
                 info.email = documentEvent.document.text.trim()
-                log.info("Updated email for project " + info.MP + ": " + info.email)
+                log.debug("Updated email for project " + info.MP + ": " + info.email)
             }
         }
 

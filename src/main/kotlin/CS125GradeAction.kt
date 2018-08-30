@@ -12,7 +12,7 @@ class CS125GradeAction : AnAction() {
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
     override fun actionPerformed(anActionEvent: AnActionEvent) {
-        log.info("actionPerformed")
+        log.trace("actionPerformed")
         val project = anActionEvent.project ?: return
 
         val runManager = RunManager.getInstance(project)
