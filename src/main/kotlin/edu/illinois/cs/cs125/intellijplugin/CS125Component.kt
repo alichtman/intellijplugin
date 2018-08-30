@@ -141,7 +141,7 @@ class CS125Component :
         }
 
         val dataContext = try {
-            DataManager.getInstance().dataContextFromFocusAsync.blockingGet(100)
+            DataManager.getInstance().dataContextFromFocusAsync.blockingGet(1000)
         } catch (e: Exception) {
             log.warn("Problem uploading: " + e.toString())
             null
