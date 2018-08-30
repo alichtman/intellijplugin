@@ -18,14 +18,7 @@ import java.nio.file.Files
 import java.time.Instant
 import java.util.*
 import kotlin.concurrent.timer
-import com.sun.javafx.scene.CameraHelper.project
-import com.intellij.openapi.module.ModuleWithNameAlreadyExists
 import com.intellij.openapi.progress.ProgressIndicator
-import org.jdom.JDOMException
-import java.io.IOException
-
-
-
 
 class CS125Component :
         ApplicationComponent,
@@ -34,6 +27,7 @@ class CS125Component :
         VisibleAreaListener,
         EditorMouseListener,
         SelectionListener,
+        DocumentListener,
         ProjectManagerListener {
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
@@ -51,21 +45,24 @@ class CS125Component :
             var caretPositionChangedCount: Int = 0,
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0,
-            var selectionChangedCount: Int = 0
+            var selectionChangedCount: Int = 0,
+            var documentChangedCount: Int = 0
     )
-    fun totalCount(counter: Counter): Int {
+    private fun totalCount(counter: Counter): Int {
         return counter.keystrokeCount +
                 counter.caretPositionChangedCount +
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
-                counter.visibleAreaChangedCount
+                counter.visibleAreaChangedCount +
+                counter.documentChangedCount
     }
-    var currentProjectCounters = mutableMapOf<Project, Counter>()
+    private var currentProjectCounters = mutableMapOf<Project, Counter>()
 
     data class ProjectInfo(
-            var MP: String
+            var MP: String,
+            var email: String = ""
     )
-    var projectInfo = mutableMapOf<Project, ProjectInfo>()
+    private var projectInfo = mutableMapOf<Project, ProjectInfo>()
 
     override fun initComponent() {
         log.info("initComponent")
@@ -78,6 +75,7 @@ class CS125Component :
             EditorFactory.getInstance().eventMulticaster.addVisibleAreaListener(this)
             EditorFactory.getInstance().eventMulticaster.addEditorMouseListener(this)
             EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
+            EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
         }
     }
 
@@ -99,18 +97,24 @@ class CS125Component :
         if (uploadBusy) {
             return
         }
+
+        val state = CS125Persistence.getInstance().persistentState
+
+        val startIndex = 0
+        val endIndex = state.savedCounters.size
+
+        val uploadingCounters = mutableListOf<Counter>()
+        uploadingCounters.addAll(state.savedCounters)
+
+        if (uploadingCounters.isEmpty()) {
+            return
+        }
+
         val uploadCounterTask = object: Task.Backgroundable(project,"Uploading...", false) {
             override fun run(progressIndicator: ProgressIndicator) {
-                val state = CS125Persistence.getInstance().persistentState
-
-                val startIndex = 0
-                val endIndex = state.savedCounters.size
-
-                val uploadingCounters = mutableListOf<Counter>()
-                uploadingCounters.addAll(state.savedCounters);
-
+                updateEmails()
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(1000)
                 } catch (e: Exception) { }
                 state.savedCounters.subList(startIndex, endIndex).clear()
                 log.info("Upload done")
@@ -121,6 +125,7 @@ class CS125Component :
         uploadBusy = true
     }
 
+    @Synchronized
     fun rotateCounters() {
         log.info("rotateCounters")
 
@@ -141,7 +146,7 @@ class CS125Component :
         }
     }
 
-    val STATE_TIMER_PERIOD = 5000L
+    private val stateTimerPeriod = 5000L
     private var stateTimer: Timer? = null
 
     override fun projectOpened(project: Project) {
@@ -155,10 +160,7 @@ class CS125Component :
 
         @Suppress("UNCHECKED_CAST")
         val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath())) as Map<String, String>
-        val MPname = gradeConfiguration.get("name")
-        if (MPname == null) {
-            return
-        }
+        val MPname = gradeConfiguration["name"] ?: return
 
         val state = CS125Persistence.getInstance().persistentState
         projectInfo[project] = ProjectInfo(MPname)
@@ -167,9 +169,9 @@ class CS125Component :
         if (currentProjectCounters.size == 1) {
             stateTimer?.cancel()
             stateTimer = timer("edu.illinois.cs.cs125", true,
-                    STATE_TIMER_PERIOD, STATE_TIMER_PERIOD, {
+                    stateTimerPeriod, stateTimerPeriod) {
                 rotateCounters()
-            })
+            }
         }
     }
 
@@ -180,7 +182,7 @@ class CS125Component :
             return
         }
         currentProjectCounters.remove(project)
-        if (currentProjectCounters.size == 0) {
+        if (currentProjectCounters.isEmpty()) {
             stateTimer?.cancel()
         }
     }
@@ -215,49 +217,25 @@ class CS125Component :
         currentProjectCounters[selectionEvent.editor.project]!!.selectionChangedCount++
     }
 
-    /**
-     * Extracts email from email.txt file in root dir of open project.
-     * Returns email if file exists, and returns "" otherwise.
-     */
-    private fun getEmail(project: Project): String {
-        val projectBaseDir = project.baseDir.path
-        var emailPath = File( projectBaseDir + File.separator + "email.txt")
-
-        return if (emailPath.exists()) {
-            emailPath.readText()
-        }
-        else {
-            ""
-        }
-    }
-
-    /*
-    private fun logEditors(document: Document, editors: Array<Editor>, message: String) {
+    override fun documentChanged(documentEvent: DocumentEvent) {
+        log.info("documentChanged")
+        val editors = EditorFactory.getInstance().getEditors(documentEvent.document)
         if (editors.isEmpty()) {
             return
         }
-
-        val editor = editors[0]
-        val project = editor.project
-
-        if (shouldLog(project!!)) {
-            val file = FileDocumentManager.getInstance().getFile(document)
-            val completeMessage = "${file!!.path}, $message, ${project.basePath},"
-            println(completeMessage)
-            log.info(completeMessage)
-        }
-
-    }
-
-    private fun logEditor(document: Document, editor: Editor, message: String) {
-        val project = editor.project
-
-        if (shouldLog(project!!)) {
-            val file = FileDocumentManager.getInstance().getFile(document)
-            val completeMessage = "${file!!.path}, $message, ${project.basePath}"
-            println(completeMessage)
-            log.info(completeMessage)
+        editors.forEach { editor ->
+            currentProjectCounters[editor.project]!!.documentChangedCount++
         }
     }
-    */
+
+    private fun updateEmails() {
+        for ((project, projectInfo) in projectInfo) {
+            val emailFile = File(project.baseDir.path).resolve(File("email.txt"))
+            if (!(emailFile.exists())) {
+                projectInfo.email = ""
+            } else {
+                projectInfo.email = emailFile.readText().trim()
+            }
+        }
+    }
 }
