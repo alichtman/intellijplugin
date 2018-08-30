@@ -1,7 +1,16 @@
 package edu.illinois.cs.cs125.intellijplugin
 
 import com.google.gson.GsonBuilder
+import com.intellij.build.BuildProgressListener
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
+import com.intellij.execution.ExecutionListener
+import com.intellij.execution.ExecutionManager
+import com.intellij.execution.process.ProcessHandler
+import com.intellij.execution.runners.ExecutionEnvironment
+import com.intellij.execution.testframework.AbstractTestProxy
+import com.intellij.execution.testframework.TestStatusListener
+import com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener
+import com.intellij.execution.testframework.sm.runner.SMTestProxy
 import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
@@ -10,6 +19,9 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
+import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskId
+import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskNotificationEvent
+import com.intellij.openapi.externalSystem.model.task.ExternalSystemTaskNotificationListener
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -24,6 +36,7 @@ import org.apache.http.impl.client.HttpClientBuilder
 import org.jetbrains.annotations.NotNull
 import org.yaml.snakeyaml.Yaml
 import java.io.File
+import java.net.NetworkInterface
 import java.nio.file.Files
 import java.time.Instant
 import java.util.*
@@ -31,13 +44,17 @@ import kotlin.concurrent.timer
 
 class CS125Component :
         ApplicationComponent,
-        TypedHandlerDelegate(),
         CaretListener,
         VisibleAreaListener,
         EditorMouseListener,
         SelectionListener,
         DocumentListener,
-        ProjectManagerListener {
+        ProjectManagerListener,
+        SMTRunnerEventsListener,
+        ExternalSystemTaskNotificationListener,
+        ExecutionListener,
+        BuildProgressListener {
+
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
     @NotNull
@@ -49,6 +66,8 @@ class CS125Component :
             var index: Long = 0,
             var MP: String = "",
             var email: String = "",
+            var networkAddress: String = "",
+            var version: String = "",
             var start: Long = Instant.now().toEpochMilli(),
             var end: Long = 0,
             var keystrokeCount: Int = 0,
@@ -56,23 +75,32 @@ class CS125Component :
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0,
             var selectionChangedCount: Int = 0,
-            var documentChangedCount: Int = 0
+            var documentChangedCount: Int = 0,
+            var testsFinished: Int = 0,
+            var testsFailed: Int = 0
     )
+
     private fun totalCount(counter: Counter): Int {
         return counter.keystrokeCount +
                 counter.caretPositionChangedCount +
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
                 counter.visibleAreaChangedCount +
-                counter.documentChangedCount
+                counter.documentChangedCount +
+                counter.testsFailed +
+                counter.testsFinished
     }
     private var currentProjectCounters = mutableMapOf<Project, Counter>()
 
     data class ProjectInfo(
             var MP: String,
-            var email: String
+            var email: String,
+            var networkAddress: String
     )
-    private var projectInfo = mutableMapOf<Project, ProjectInfo>()
+    var projectInfo = mutableMapOf<Project, ProjectInfo>()
+
+    private val versionProperties = Properties()
+    private var version = ""
 
     override fun initComponent() {
         log.trace("initComponent")
@@ -82,6 +110,11 @@ class CS125Component :
 
         val state = CS125Persistence.getInstance().persistentState
         log.debug("Loading " + state.savedCounters.size.toString() + " counters")
+
+        version = try {
+            versionProperties.load(this.javaClass.getResourceAsStream("/version.properties"))
+            versionProperties.getProperty("version")
+        } catch (e: Exception) { "" }
 
         ApplicationManager.getApplication().invokeLater {
             EditorFactory.getInstance().eventMulticaster.addCaretListener(this)
@@ -166,8 +199,9 @@ class CS125Component :
         uploadBusy = true
     }
 
-    private val maxSavedCounters = 3600 // 1 hour of logs
-    private val uploadLogCountThreshold = 900 // 15 minutes of logs
+    private val stateTimerPeriodSec = 5
+    private val maxSavedCounters = (2 * 60 * 60 / stateTimerPeriodSec) // 2 hours of logs
+    private val uploadLogCountThreshold = (15 * 60 / stateTimerPeriodSec) // 15 minutes of logs
     private val shortestUploadWait = 10 * 60 * 1000 // 10 minutes
     private val shortestUploadInterval = 30 * 60 * 1000 // 30 minutes
 
@@ -188,7 +222,9 @@ class CS125Component :
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
                     projectInfo[project]?.MP ?: "",
-                    projectInfo[project]?.email ?: ""
+                    projectInfo[project]?.email ?: "",
+                    projectInfo[project]?.networkAddress ?: "",
+                    version
             )
         }
 
@@ -204,7 +240,6 @@ class CS125Component :
         }
     }
 
-    private val stateTimerPeriod = 5000L
     private var stateTimer: Timer? = null
 
     override fun projectOpened(project: Project) {
@@ -225,18 +260,33 @@ class CS125Component :
             email = emailFile.readText().trim()
         }
 
+        val networkAddress = try {
+            NetworkInterface.getNetworkInterfaces().toList().flatMap { networkInterface ->
+                networkInterface.inetAddresses.toList()
+                        .filter { it.address.size == 4 }
+                        .filter { !it.isLoopbackAddress }
+                        .filter { it.address[0] != 10.toByte() }
+                        .map { it.hostAddress }
+            }.first()
+        } catch (e: Exception) { "" }
+
+        projectInfo[project] = ProjectInfo(name, email, networkAddress)
+
         val state = CS125Persistence.getInstance().persistentState
-        projectInfo[project] = ProjectInfo(name, email)
-        currentProjectCounters[project] = Counter(state.counterIndex++, name, email)
+
+        currentProjectCounters[project] = Counter(state.counterIndex++, name, email, networkAddress, version)
 
         if (currentProjectCounters.size == 1) {
             stateTimer?.cancel()
             stateTimer = timer("edu.illinois.cs.cs125", true,
-                    stateTimerPeriod, stateTimerPeriod) {
+                    stateTimerPeriodSec * 1000L, stateTimerPeriodSec * 1000L) {
                 rotateCounters()
             }
         }
         uploadCounters()
+
+        project.messageBus.connect().subscribe(SMTRunnerEventsListener.TEST_STATUS, this)
+        project.messageBus.connect().subscribe(ExecutionManager.EXECUTION_TOPIC, this)
     }
 
     override fun projectClosed(project: Project) {
@@ -254,11 +304,13 @@ class CS125Component :
         uploadCounters()
     }
 
-    override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
-        val projectCounter = currentProjectCounters[project] ?: return Result.CONTINUE
-        log.trace("charTyped")
-        projectCounter.keystrokeCount++
-        return Result.CONTINUE
+    inner class TypedHandler: TypedHandlerDelegate() {
+        override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
+            val projectCounter = currentProjectCounters[project] ?: return Result.CONTINUE
+            log.info("charTyped")
+            projectCounter.keystrokeCount++
+            return Result.CONTINUE
+        }
     }
 
     override fun caretPositionChanged(caretEvent: CaretEvent) {
@@ -308,5 +360,51 @@ class CS125Component :
             val projectCounter = currentProjectCounters[editor.project] ?: continue
             projectCounter.documentChangedCount++
         }
+    }
+
+    inner class TestStatus: TestStatusListener() {
+        override fun testSuiteFinished(root: AbstractTestProxy?) {
+            log.info("testSuiteFinished")
+        }
+    }
+
+    override fun onTestFinished(test: SMTestProxy) {
+        log.info("onTestFinished")
+    }
+    override fun onTestFailed(test: SMTestProxy) {
+        log.info("onTestFailed")
+    }
+    override fun onCustomProgressTestFinished() {}
+    override fun onSuiteFinished(suite: SMTestProxy) {}
+    override fun onTestingFinished(testsRoot: SMTestProxy.SMRootTestProxy) {}
+    override fun onCustomProgressTestStarted() {}
+    override fun onTestsCountInSuite(count: Int) {}
+    override fun onSuiteTreeStarted(suite: SMTestProxy?) {}
+    override fun onTestingStarted(testsRoot: SMTestProxy.SMRootTestProxy) {
+        log.info("onTestingStarted")
+    }
+    override fun onCustomProgressTestFailed() {}
+    override fun onSuiteStarted(suite: SMTestProxy) {}
+    override fun onCustomProgressTestsCategory(categoryName: String?, testCount: Int) {}
+    override fun onSuiteTreeNodeAdded(testProxy: SMTestProxy?) {}
+    override fun onTestStarted(test: SMTestProxy) {}
+    override fun onTestIgnored(test: SMTestProxy) {}
+
+    @Suppress("OverridingDeprecatedMember")
+    override fun onQueued(id: ExternalSystemTaskId, workingDir: String?) {}
+    @Suppress("OverridingDeprecatedMember")
+    override fun onStart(id: ExternalSystemTaskId) {}
+    override fun onSuccess(id: ExternalSystemTaskId) {}
+    override fun onFailure(id: ExternalSystemTaskId, e: java.lang.Exception) {}
+    override fun onTaskOutput(id: ExternalSystemTaskId, text: String, stdOut: Boolean) {}
+    override fun onStatusChange(event: ExternalSystemTaskNotificationEvent) {
+        log.info("onStatusChange")
+    }
+    override fun onCancel(id: ExternalSystemTaskId) {}
+    override fun onEnd(id: ExternalSystemTaskId) {}
+    override fun beforeCancel(id: ExternalSystemTaskId) {}
+
+    override fun processStarted(executorId: String, env: ExecutionEnvironment, handler: ProcessHandler) {
+        log.info("processStarted")
     }
 }

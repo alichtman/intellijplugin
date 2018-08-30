@@ -4,15 +4,9 @@ import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.ServiceManager
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
-import com.intellij.openapi.diagnostic.Logger
 
-@State(
-        name = "CS125Component",
-        storages = [(Storage(file = "CS125Component.xml"))]
-)
+@State(name = "CS125Component", storages = [(Storage(file = "CS125Component.xml"))])
 class CS125Persistence : PersistentStateComponent<CS125Persistence.State> {
-    private val log = Logger.getInstance("edu.illinois.cs.cs125")
-
     class State {
         var savedCounters = mutableListOf<CS125Component.Counter>()
         var counterIndex = 0L

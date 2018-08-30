@@ -9,12 +9,14 @@
     Plugin to enable MP development for CS 125 @ Illinois.
     ]]></description>
 
-    <idea-version since-build="173"/>
+    <idea-version since-build="182"/>
 
     <depends>com.intellij.modules.lang</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <typedHandler implementation="edu.illinois.cs.cs125.intellijplugin.CS125Component"/>
+        <typedHandler implementation="edu.illinois.cs.cs125.intellijplugin.CS125Component$TypedHandler"/>
+        <testStatusListener implementation="edu.illinois.cs.cs125.intellijplugin.CS125Component$TestStatus"/>
+        <externalSystemTaskNotificationListener implementation="edu.illinois.cs.cs125.intellijplugin.CS125Component" />
         <applicationService
                 serviceInterface="edu.illinois.cs.cs125.intellijplugin.CS125Persistence"
                 serviceImplementation="edu.illinois.cs.cs125.intellijplugin.CS125Persistence"/>
