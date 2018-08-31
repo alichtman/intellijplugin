@@ -21,6 +21,9 @@ class CS125GradeAction : AnAction() {
         for (runConfiguration in runManager.allSettings) {
             if (runConfiguration.name.trim().toLowerCase().startsWith("grade")) {
                 ProgramRunnerUtil.executeConfiguration(runConfiguration, DefaultRunExecutor.getRunExecutorInstance())
+                val projectCounter =
+                        project?.getComponent(CS125Component::class.java)?.currentProjectCounters?.get(project) ?: return
+                projectCounter.gradingCount++
             }
         }
     }

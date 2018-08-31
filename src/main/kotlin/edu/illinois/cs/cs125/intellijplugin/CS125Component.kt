@@ -5,6 +5,10 @@ import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.compiler.CompilationStatusListener
+import com.intellij.openapi.compiler.CompileContext
+import com.intellij.openapi.compiler.CompilerManager
+import com.intellij.openapi.compiler.CompilerTopics
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Editor
@@ -37,7 +41,8 @@ class CS125Component :
         EditorMouseListener,
         SelectionListener,
         DocumentListener,
-        ProjectManagerListener {
+        ProjectManagerListener,
+        CompilationStatusListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
@@ -59,7 +64,13 @@ class CS125Component :
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0,
             var selectionChangedCount: Int = 0,
-            var documentChangedCount: Int = 0
+            var documentChangedCount: Int = 0,
+            var compileCount: Int = 0,
+            var successfulCompileCount: Int = 0,
+            var failedCompileCount: Int = 0,
+            var compilerErrorCount: Int = 0,
+            var compilerWarningCount: Int = 0,
+            var gradingCount: Int = 0
     )
 
     private fun totalCount(counter: Counter): Int {
@@ -68,9 +79,14 @@ class CS125Component :
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
                 counter.visibleAreaChangedCount +
-                counter.documentChangedCount
+                counter.documentChangedCount +
+                counter.successfulCompileCount +
+                counter.failedCompileCount +
+                counter.compilerErrorCount +
+                counter.compilerWarningCount +
+                counter.gradingCount
     }
-    private var currentProjectCounters = mutableMapOf<Project, Counter>()
+    var currentProjectCounters = mutableMapOf<Project, Counter>()
 
     data class ProjectInfo(
             var MP: String,
@@ -197,7 +213,7 @@ class CS125Component :
                 continue
             }
             counter.end = end
-            log.trace("Counter " + counter.toString())
+            log.info("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
@@ -264,6 +280,8 @@ class CS125Component :
             }
         }
         uploadCounters()
+
+        project.messageBus.connect().subscribe(CompilerTopics.COMPILATION_STATUS, this)
     }
 
     override fun projectClosed(project: Project) {
@@ -337,5 +355,21 @@ class CS125Component :
             val projectCounter = currentProjectCounters[editor.project] ?: continue
             projectCounter.documentChangedCount++
         }
+    }
+
+    override fun compilationFinished(aborted: Boolean, errors: Int, warnings: Int, compileContext: CompileContext) {
+        if (aborted) {
+            return
+        }
+        val projectCounter = currentProjectCounters[compileContext.project] ?: return
+        log.info("compilationFinished")
+        projectCounter.compileCount++
+        if (errors == 0) {
+            projectCounter.successfulCompileCount++;
+        } else {
+            projectCounter.failedCompileCount++;
+        }
+        projectCounter.compilerErrorCount += errors
+        projectCounter.compilerWarningCount += warnings
     }
 }
