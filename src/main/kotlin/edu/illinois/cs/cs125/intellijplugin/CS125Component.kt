@@ -2,12 +2,13 @@ package edu.illinois.cs.cs125.intellijplugin
 
 import com.google.gson.GsonBuilder
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
+import com.intellij.execution.testframework.AbstractTestProxy
+import com.intellij.execution.testframework.TestStatusListener
 import com.intellij.ide.DataManager
 import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.compiler.CompilationStatusListener
 import com.intellij.openapi.compiler.CompileContext
-import com.intellij.openapi.compiler.CompilerManager
 import com.intellij.openapi.compiler.CompilerTopics
 import com.intellij.openapi.components.ApplicationComponent
 import com.intellij.openapi.diagnostic.Logger
@@ -51,11 +52,17 @@ class CS125Component :
         return "CS125 Plugin"
     }
 
+    data class TestCounter(
+            var passed: Int = 0,
+            var failed: Int = 0,
+            var ignored: Int = 0,
+            var interrupted: Int = 0
+    )
     data class Counter(
             var index: Long = 0,
             var MP: String = "",
             var email: String = "",
-            var networkAddress: String = "",
+            var sentIPAddress: String = "",
             var version: String = "",
             var start: Long = Instant.now().toEpochMilli(),
             var end: Long = 0,
@@ -70,7 +77,9 @@ class CS125Component :
             var failedCompileCount: Int = 0,
             var compilerErrorCount: Int = 0,
             var compilerWarningCount: Int = 0,
-            var gradingCount: Int = 0
+            var gradingCount: Int = 0,
+            var totalTestCount: Int = 0,
+            var testCounts: MutableMap<String, TestCounter> = mutableMapOf()
     )
 
     private fun totalCount(counter: Counter): Int {
@@ -84,7 +93,8 @@ class CS125Component :
                 counter.failedCompileCount +
                 counter.compilerErrorCount +
                 counter.compilerWarningCount +
-                counter.gradingCount
+                counter.gradingCount +
+                counter.totalTestCount
     }
     var currentProjectCounters = mutableMapOf<Project, Counter>()
 
@@ -308,6 +318,40 @@ class CS125Component :
         }
     }
 
+    inner class TestStatusHandler : TestStatusListener() {
+        override fun testSuiteFinished(abstractTestProxy: AbstractTestProxy?) { }
+        private fun countTests(abstractTestProxy: AbstractTestProxy, projectCounter: Counter) {
+            if (!abstractTestProxy.isLeaf) {
+                for (child in abstractTestProxy.children) {
+                    countTests(child, projectCounter)
+                }
+                return
+            }
+            val name = abstractTestProxy.name
+                    .replace("\\.test$".toRegex(), "")
+                    .replace(".", "_")
+            if (!(projectCounter.testCounts.containsKey(name))) {
+                projectCounter.testCounts[name] = TestCounter()
+            }
+            val testCounter = projectCounter.testCounts[name] ?: return
+            when {
+                abstractTestProxy.isPassed -> testCounter.passed++
+                abstractTestProxy.isDefect -> testCounter.failed++
+                abstractTestProxy.isIgnored -> testCounter.ignored++
+                abstractTestProxy.isInterrupted -> testCounter.interrupted++
+            }
+            projectCounter.totalTestCount++
+        }
+        override fun testSuiteFinished(abstractTestProxy: AbstractTestProxy?, project: Project) {
+            if (abstractTestProxy == null) {
+                return
+            }
+            val projectCounter = currentProjectCounters[project] ?: return
+            log.info("testSuiteFinished")
+            countTests(abstractTestProxy, projectCounter)
+        }
+    }
+
     override fun caretPositionChanged(caretEvent: CaretEvent) {
         val projectCounter = currentProjectCounters[caretEvent.editor.project] ?: return
         log.trace("caretPositionChanged")
@@ -362,12 +406,12 @@ class CS125Component :
             return
         }
         val projectCounter = currentProjectCounters[compileContext.project] ?: return
-        log.info("compilationFinished")
+        log.trace("compilationFinished")
         projectCounter.compileCount++
         if (errors == 0) {
-            projectCounter.successfulCompileCount++;
+            projectCounter.successfulCompileCount++
         } else {
-            projectCounter.failedCompileCount++;
+            projectCounter.failedCompileCount++
         }
         projectCounter.compilerErrorCount += errors
         projectCounter.compilerWarningCount += warnings
