@@ -223,7 +223,7 @@ class CS125Component :
                 continue
             }
             counter.end = end
-            log.info("Counter " + counter.toString())
+            log.trace("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
@@ -347,7 +347,7 @@ class CS125Component :
                 return
             }
             val projectCounter = currentProjectCounters[project] ?: return
-            log.info("testSuiteFinished")
+            log.trace("testSuiteFinished")
             countTests(abstractTestProxy, projectCounter)
         }
     }
