@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>edu.illinois.cs.cs125.intellijplugin</id>
     <name>CS 125 @ Illinois</name>
-    <version>0.1</version>
+    <version>0.1.1</version>
 
     <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
