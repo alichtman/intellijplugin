@@ -302,8 +302,8 @@ class CS125Component :
         project.messageBus.connect().subscribe(CompilerTopics.COMPILATION_STATUS, this)
     }
 
-    override fun projectClosed(project: Project) {
-        log.trace("projectClosed")
+    override fun projectClosing(project: Project?) {
+        log.trace("projectClosing")
 
         val currentCounter = currentProjectCounters[project] ?: return
         val state = CS125Persistence.getInstance().persistentState
@@ -314,15 +314,10 @@ class CS125Component :
         if (currentProjectCounters.isEmpty()) {
             stateTimer?.cancel()
         }
+        // Force an immediate upload
+        lastSuccessfulUpload = 0
         uploadCounters()
-    }
-
-    override fun projectClosing(project: Project?) {
         return
-    }
-
-    override fun canCloseProject(project: Project?): Boolean {
-        return true
     }
 
     inner class TypedHandler: TypedHandlerDelegate() {
