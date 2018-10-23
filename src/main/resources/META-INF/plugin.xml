@@ -9,7 +9,7 @@
     Enables MP development for CS 125 @ Illinois.
     ]]></description>
 
-    <idea-version since-build="162.2228.14"/>
+    <idea-version since-build="IC-2018.1.6"/>
 
     <depends>com.intellij.modules.lang</depends>
 
