@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>edu.illinois.cs.cs125.intellijplugin</id>
     <name>CS 125 @ Illinois</name>
-    <version>0.1.1</version>
+    <version>0.1.2</version>
 
     <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
@@ -9,7 +9,7 @@
     Enables MP development for CS 125 @ Illinois.
     ]]></description>
 
-    <idea-version since-build="182"/>
+    <idea-version since-build="162.2228.14"/>
 
     <depends>com.intellij.modules.lang</depends>
 
@@ -28,17 +28,6 @@
     </application-components>
 
     <actions>
-        <group id="CS125.MainMenu"
-               text="CS 125"
-               description="CS 125 Main Menu">
-            <add-to-group group-id="MainMenu"
-                          anchor="last"/>
-            <action id="CS125.MainMenu.Grade"
-                    class="edu.illinois.cs.cs125.intellijplugin.CS125GradeAction"
-                    text="Grade MP"
-                    description="Initiate CS 125 MP grading"/>
-        </group>
-
         <action id="CS125.ToolbarRunGroup.Grade"
                 class="edu.illinois.cs.cs125.intellijplugin.CS125GradeAction"
                 description="Initiate CS 125 MP grading"

@@ -2,7 +2,6 @@ package edu.illinois.cs.cs125.intellijplugin
 
 import com.intellij.execution.ProgramRunnerUtil
 import com.intellij.execution.RunManager
-import com.intellij.execution.RunManagerListener
 import com.intellij.execution.executors.DefaultRunExecutor
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
@@ -20,9 +19,9 @@ class CS125GradeAction : AnAction() {
 
         for (runConfiguration in runManager.allSettings) {
             if (runConfiguration.name.trim().toLowerCase().startsWith("grade")) {
-                ProgramRunnerUtil.executeConfiguration(runConfiguration, DefaultRunExecutor.getRunExecutorInstance())
+                ProgramRunnerUtil.executeConfiguration(project, runConfiguration, DefaultRunExecutor.getRunExecutorInstance())
                 val projectCounter =
-                        project?.getComponent(CS125Component::class.java)?.currentProjectCounters?.get(project) ?: return
+                        project.getComponent(CS125Component::class.java)?.currentProjectCounters?.get(project) ?: return
                 projectCounter.gradingCount++
             }
         }

@@ -1,6 +1,6 @@
 
 buildscript {
-    ext.kotlin_version = '1.2.61'
+    ext.kotlin_version = '1.2.71'
     repositories {
         mavenCentral()
     }
@@ -10,8 +10,8 @@ buildscript {
 }
 
 plugins {
-    id 'org.jetbrains.intellij' version '0.3.7'
-    id 'org.jetbrains.kotlin.jvm' version '1.2.61'
+    id 'org.jetbrains.intellij' version '0.3.12'
+    id 'org.jetbrains.kotlin.jvm' version '1.2.71'
 }
 
 apply plugin: 'idea'
@@ -19,7 +19,7 @@ apply plugin: 'org.jetbrains.intellij'
 apply plugin: 'kotlin'
 
 intellij {
-  version 'IC-2018.2.2'
+  version '162.2228.14'
   pluginName 'CS 125 Plugin'
 }
 

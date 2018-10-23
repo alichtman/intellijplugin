@@ -67,6 +67,8 @@ class CS125Component :
             var start: Long = Instant.now().toEpochMilli(),
             var end: Long = 0,
             var keystrokeCount: Int = 0,
+            var caretAdded: Int = 0,
+            var caretRemoved: Int = 0,
             var caretPositionChangedCount: Int = 0,
             var visibleAreaChangedCount: Int = 0,
             var mousePressedCount: Int = 0,
@@ -84,6 +86,8 @@ class CS125Component :
 
     private fun totalCount(counter: Counter): Int {
         return counter.keystrokeCount +
+                counter.caretAdded +
+                counter.caretRemoved +
                 counter.caretPositionChangedCount +
                 counter.visibleAreaChangedCount +
                 counter.mousePressedCount +
@@ -131,6 +135,10 @@ class CS125Component :
         }
     }
 
+    override fun disposeComponent() {
+        return
+    }
+
     var uploadBusy = false
     var lastUploadFailed = false
     var lastUploadAttempt: Long = 0
@@ -167,11 +175,12 @@ class CS125Component :
         }
 
         val dataContext = try {
-            DataManager.getInstance().dataContextFromFocusAsync.blockingGet(1000)
+            DataManager.getInstance().dataContextFromFocus.result
         } catch (e: Exception) {
             log.warn("Problem uploading: " + e.toString())
             null
         }
+
         val project = dataContext?.getData(DataKeys.PROJECT) ?: return
 
         val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
@@ -216,8 +225,8 @@ class CS125Component :
         log.trace("rotateCounters")
 
         val state = CS125Persistence.getInstance().persistentState
-
         val end = Instant.now().toEpochMilli()
+
         for ((project, counter) in currentProjectCounters) {
             if (totalCount(counter) == 0) {
                 continue
@@ -309,6 +318,14 @@ class CS125Component :
         uploadCounters()
     }
 
+    override fun projectClosing(project: Project?) {
+        return
+    }
+
+    override fun canCloseProject(project: Project?): Boolean {
+        return true
+    }
+
     inner class TypedHandler: TypedHandlerDelegate() {
         override fun charTyped(c: Char, project: Project, editor: Editor, file: PsiFile): Result {
             val projectCounter = currentProjectCounters[project] ?: return Result.CONTINUE
@@ -352,6 +369,18 @@ class CS125Component :
         }
     }
 
+    override fun caretAdded(caretEvent: CaretEvent) {
+        val projectCounter = currentProjectCounters[caretEvent.editor.project] ?: return
+        log.trace("caretAdded")
+        projectCounter.caretAdded++
+        return
+    }
+    override fun caretRemoved(caretEvent: CaretEvent) {
+        val projectCounter = currentProjectCounters[caretEvent.editor.project] ?: return
+        log.trace("caretRemoved")
+        projectCounter.caretRemoved++
+        return
+    }
     override fun caretPositionChanged(caretEvent: CaretEvent) {
         val projectCounter = currentProjectCounters[caretEvent.editor.project] ?: return
         log.trace("caretPositionChanged")
@@ -399,6 +428,10 @@ class CS125Component :
             val projectCounter = currentProjectCounters[editor.project] ?: continue
             projectCounter.documentChangedCount++
         }
+    }
+
+    override fun beforeDocumentChange(event: DocumentEvent?) {
+        return
     }
 
     override fun compilationFinished(aborted: Boolean, errors: Int, warnings: Int, compileContext: CompileContext) {
