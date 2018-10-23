@@ -4,8 +4,6 @@ import com.google.gson.GsonBuilder
 import com.intellij.codeInsight.editorActions.TypedHandlerDelegate
 import com.intellij.execution.testframework.AbstractTestProxy
 import com.intellij.execution.testframework.TestStatusListener
-import com.intellij.ide.DataManager
-import com.intellij.openapi.actionSystem.DataKeys
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.compiler.CompilationStatusListener
 import com.intellij.openapi.compiler.CompileContext
@@ -22,6 +20,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiFile
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.StringEntity
@@ -119,7 +118,7 @@ class CS125Component :
         connection.subscribe(ProjectManager.TOPIC, this)
 
         val state = CS125Persistence.getInstance().persistentState
-        log.debug("Loading " + state.savedCounters.size.toString() + " counters")
+        log.trace("Loading " + state.savedCounters.size.toString() + " counters")
 
         version = try {
             versionProperties.load(this.javaClass.getResourceAsStream("/version.properties"))
@@ -148,7 +147,7 @@ class CS125Component :
     fun uploadCounters() {
         log.trace("uploadCounters")
         if (uploadBusy) {
-            log.trace("Previous upload still busy")
+            log.warn("Previous upload still busy")
             return
         }
 
@@ -174,14 +173,15 @@ class CS125Component :
             return
         }
 
-        val dataContext = try {
-            DataManager.getInstance().dataContextFromFocus.result
-        } catch (e: Exception) {
-            log.warn("Problem uploading: " + e.toString())
-            null
-        }
+        val project = ProjectManager.getInstance().openProjects.find { project ->
+            val window = WindowManager.getInstance().suggestParentWindow(project)
+            window != null && window.isFocused
+        } ?: ProjectManager.getInstance().openProjects[0]
 
-        val project = dataContext?.getData(DataKeys.PROJECT) ?: return
+        if (project == null) {
+            log.warn("Can't find project in uploadCounters")
+            return
+        }
 
         val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
             override fun run(progressIndicator: ProgressIndicator) {
@@ -211,7 +211,6 @@ class CS125Component :
             }
         }
         ProgressManager.getInstance().run(uploadCounterTask)
-        uploadBusy = true
     }
 
     private val stateTimerPeriodSec = 5

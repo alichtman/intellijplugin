@@ -33,7 +33,7 @@ dependencies {
 }
 
 group = 'edu.illinois.cs.cs125'
-version = '0.1.1'
+version = '0.1.2'
 
 def generatedVersionDir = "${buildDir}/generated-version"
 sourceSets {
