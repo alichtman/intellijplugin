@@ -173,10 +173,14 @@ class CS125Component :
             return
         }
 
-        val project = ProjectManager.getInstance().openProjects.find { project ->
-            val window = WindowManager.getInstance().suggestParentWindow(project)
-            window != null && window.isFocused
-        } ?: ProjectManager.getInstance().openProjects[0]
+        val project = try {
+            ProjectManager.getInstance().openProjects.find { project ->
+                val window = WindowManager.getInstance().suggestParentWindow(project)
+                window != null && window.isFocused
+            } ?: ProjectManager.getInstance().openProjects[0]
+        } catch (e: Exception) {
+            null
+        }
 
         if (project == null) {
             log.warn("Can't find project in uploadCounters")
