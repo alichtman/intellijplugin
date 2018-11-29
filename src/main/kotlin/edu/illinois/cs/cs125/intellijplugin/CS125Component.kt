@@ -20,6 +20,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiFile
 import org.apache.http.client.methods.HttpPost
@@ -80,11 +81,12 @@ class CS125Component :
             var compilerWarningCount: Int = 0,
             var gradingCount: Int = 0,
             var totalTestCount: Int = 0,
-            var testCounts: MutableMap<String, TestCounter> = mutableMapOf()
+            var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
+            var openFiles: MutableList<String> = mutableListOf()
     )
 
     private fun totalCount(counter: Counter): Int {
-        return counter.keystrokeCount +
+        return  counter.keystrokeCount +
                 counter.caretAdded +
                 counter.caretRemoved +
                 counter.caretPositionChangedCount +
@@ -244,6 +246,11 @@ class CS125Component :
                     projectInfo[project]?.networkAddress ?: "",
                     version
             )
+
+            val files = FileEditorManager.getInstance(project).getOpenFiles()
+            for (file in files) {
+                counter.openFiles.add(file.getName())
+            }
         }
 
         if (state.savedCounters.size > maxSavedCounters) {
