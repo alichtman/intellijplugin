@@ -14,12 +14,16 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.*
 import com.intellij.openapi.fileEditor.FileDocumentManager
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.FileEditorManagerEvent
+import com.intellij.openapi.fileEditor.FileEditorManagerListener
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.project.ProjectManager
 import com.intellij.openapi.project.ProjectManagerListener
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.wm.WindowManager
 import com.intellij.psi.PsiFile
 import org.apache.http.client.methods.HttpPost
@@ -42,7 +46,8 @@ class CS125Component :
         SelectionListener,
         DocumentListener,
         ProjectManagerListener,
-        CompilationStatusListener {
+        CompilationStatusListener,
+        FileEditorManagerListener {
 
     private val log = Logger.getInstance("edu.illinois.cs.cs125")
 
@@ -80,6 +85,9 @@ class CS125Component :
             var compilerWarningCount: Int = 0,
             var gradingCount: Int = 0,
             var totalTestCount: Int = 0,
+            var fileOpenedCount: Int = 0,
+            var fileClosedCount: Int = 0,
+            var fileSelectionChangedCount: Int = 0,
             var testCounts: MutableMap<String, TestCounter> = mutableMapOf()
     )
 
@@ -97,7 +105,10 @@ class CS125Component :
                 counter.compilerErrorCount +
                 counter.compilerWarningCount +
                 counter.gradingCount +
-                counter.totalTestCount
+                counter.totalTestCount +
+                counter.fileOpenedCount +
+                counter.fileClosedCount +
+                counter.fileSelectionChangedCount
     }
     var currentProjectCounters = mutableMapOf<Project, Counter>()
 
@@ -235,7 +246,7 @@ class CS125Component :
                 continue
             }
             counter.end = end
-            log.trace("Counter " + counter.toString())
+            log.info("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
@@ -304,6 +315,7 @@ class CS125Component :
         uploadCounters()
 
         project.messageBus.connect().subscribe(CompilerTopics.COMPILATION_STATUS, this)
+        project.messageBus.connect().subscribe(FileEditorManagerListener.FILE_EDITOR_MANAGER, this)
     }
 
     override fun projectClosing(project: Project?) {
@@ -446,5 +458,21 @@ class CS125Component :
         }
         projectCounter.compilerErrorCount += errors
         projectCounter.compilerWarningCount += warnings
+    }
+
+    override fun fileOpened(manager: FileEditorManager, file: VirtualFile) {
+        val projectCounter = currentProjectCounters[manager.project] ?: return
+        log.info("fileOpened")
+        projectCounter.fileOpenedCount++
+    }
+    override fun fileClosed(manager: FileEditorManager, file: VirtualFile) {
+        val projectCounter = currentProjectCounters[manager.project] ?: return
+        log.info("fileClosed")
+        projectCounter.fileClosedCount++
+    }
+    override fun selectionChanged(event: FileEditorManagerEvent) {
+        val projectCounter = currentProjectCounters[event.manager.project] ?: return
+        log.info("fileSelectionChanged")
+        projectCounter.fileSelectionChangedCount++
     }
 }
