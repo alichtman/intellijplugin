@@ -85,14 +85,16 @@ class CS125Component :
             var compilerWarningCount: Int = 0,
             var gradingCount: Int = 0,
             var totalTestCount: Int = 0,
+
             var fileOpenedCount: Int = 0,
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
-            var testCounts: MutableMap<String, TestCounter> = mutableMapOf()
+            var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
+            var openFiles: MutableList<String> = mutableListOf()
     )
 
     private fun totalCount(counter: Counter): Int {
-        return counter.keystrokeCount +
+        return  counter.keystrokeCount +
                 counter.caretAdded +
                 counter.caretRemoved +
                 counter.caretPositionChangedCount +
@@ -246,7 +248,15 @@ class CS125Component :
                 continue
             }
             counter.end = end
-            log.info("Counter " + counter.toString())
+
+            log.trace("Counter " + counter.toString())
+
+            val files = FileEditorManager.getInstance(project).openFiles
+            for (file in files) {
+                counter.openFiles.add(file.name)
+            }
+
+            log.trace("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
