@@ -249,14 +249,13 @@ class CS125Component :
             }
             counter.end = end
 
-            log.trace("Counter " + counter.toString())
-
             val files = FileEditorManager.getInstance(project).openFiles
             for (file in files) {
-                counter.openFiles.add(file.name)
+                counter.openFiles.add(file.path)
             }
 
-            log.trace("Counter " + counter.toString())
+            log.info("Counter " + counter.toString())
+
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
                     state.counterIndex++,
