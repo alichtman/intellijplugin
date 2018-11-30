@@ -237,6 +237,12 @@ class CS125Component :
                 continue
             }
             counter.end = end
+
+            val files = FileEditorManager.getInstance(project).getOpenFiles()
+            for (file in files) {
+                counter.openFiles.add(file.getName())
+            }
+
             log.trace("Counter " + counter.toString())
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
@@ -246,11 +252,6 @@ class CS125Component :
                     projectInfo[project]?.networkAddress ?: "",
                     version
             )
-
-            val files = FileEditorManager.getInstance(project).getOpenFiles()
-            for (file in files) {
-                counter.openFiles.add(file.getName())
-            }
         }
 
         if (state.savedCounters.size > maxSavedCounters) {
