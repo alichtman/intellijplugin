@@ -90,7 +90,7 @@ class CS125Component :
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
             var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
-            var openFiles: MutableList<String> = mutableListOf()
+            var openFiles: MutableMap<String, Long> = mutableMapOf()
     )
 
     private fun totalCount(counter: Counter): Int {
@@ -251,7 +251,8 @@ class CS125Component :
 
             val files = FileEditorManager.getInstance(project).openFiles
             for (file in files) {
-                counter.openFiles.add(file.path)
+                log.info(file.canonicalPath + ": " + file.length)
+                counter.openFiles[file.path] = file.length
             }
 
             log.info("Counter " + counter.toString())
@@ -474,14 +475,18 @@ class CS125Component :
         log.info("fileOpened")
         projectCounter.fileOpenedCount++
     }
+
     override fun fileClosed(manager: FileEditorManager, file: VirtualFile) {
         val projectCounter = currentProjectCounters[manager.project] ?: return
         log.info("fileClosed")
         projectCounter.fileClosedCount++
     }
+
     override fun selectionChanged(event: FileEditorManagerEvent) {
         val projectCounter = currentProjectCounters[event.manager.project] ?: return
         log.info("fileSelectionChanged")
         projectCounter.fileSelectionChangedCount++
     }
+
+
 }
