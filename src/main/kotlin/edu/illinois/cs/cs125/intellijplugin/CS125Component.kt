@@ -90,7 +90,7 @@ class CS125Component :
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
             var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
-            var openFiles: MutableMap<String, Long> = mutableMapOf()
+            var openFiles: MutableMap<String, Int> = mutableMapOf()
     )
 
     private fun totalCount(counter: Counter): Int {
@@ -250,9 +250,17 @@ class CS125Component :
             counter.end = end
 
             val files = FileEditorManager.getInstance(project).openFiles
+            val docManager = FileDocumentManager.getInstance()
             for (file in files) {
-                log.info(file.canonicalPath + ": " + file.length)
-                counter.openFiles[file.path] = file.length
+                try {
+                    if (file != null) {
+                        val doc = docManager.getCachedDocument(file)
+                        if (doc != null) {
+                            log.info(doc.lineCount.toString())
+                            counter.openFiles[file.path] = doc.lineCount
+                        }
+                    }
+                } catch (e: Throwable) {}
             }
 
             log.info("Counter " + counter.toString())
