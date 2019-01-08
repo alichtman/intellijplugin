@@ -68,6 +68,7 @@ class CS125Component :
             var email: String = "",
             var sentIPAddress: String = "",
             var version: String = "",
+            var UUID: String = "",
             var start: Long = Instant.now().toEpochMilli(),
             var end: Long = 0,
             var keystrokeCount: Int = 0,
@@ -132,6 +133,13 @@ class CS125Component :
 
         val state = CS125Persistence.getInstance().persistentState
         log.trace("Loading " + state.savedCounters.size.toString() + " counters")
+
+        if (state.UUID == "") {
+            state.UUID = UUID.randomUUID().toString()
+        }
+        for (counter in state.savedCounters) {
+            counter.UUID = state.UUID
+        }
 
         version = try {
             versionProperties.load(this.javaClass.getResourceAsStream("/version.properties"))
@@ -256,12 +264,13 @@ class CS125Component :
                     if (file != null) {
                         val doc = docManager.getCachedDocument(file)
                         if (doc != null) {
-                            log.info(doc.lineCount.toString())
                             counter.openFiles[file.path] = doc.lineCount
                         }
                     }
                 } catch (e: Throwable) {}
             }
+
+            counter.UUID = state.UUID
 
             log.info("Counter " + counter.toString())
 
@@ -271,7 +280,8 @@ class CS125Component :
                     projectInfo[project]?.MP ?: "",
                     projectInfo[project]?.email ?: "",
                     projectInfo[project]?.networkAddress ?: "",
-                    version
+                    version,
+                    state.UUID
             )
         }
 
@@ -321,7 +331,7 @@ class CS125Component :
 
         val state = CS125Persistence.getInstance().persistentState
 
-        currentProjectCounters[project] = Counter(state.counterIndex++, name, email, networkAddress, version)
+        currentProjectCounters[project] = Counter(state.counterIndex++, name, email, networkAddress, version, state.UUID)
 
         if (currentProjectCounters.size == 1) {
             stateTimer?.cancel()
@@ -495,6 +505,4 @@ class CS125Component :
         log.info("fileSelectionChanged")
         projectCounter.fileSelectionChangedCount++
     }
-
-
 }
