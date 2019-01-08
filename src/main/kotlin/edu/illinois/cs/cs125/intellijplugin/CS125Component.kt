@@ -86,16 +86,19 @@ class CS125Component :
             var compilerWarningCount: Int = 0,
             var gradingCount: Int = 0,
             var totalTestCount: Int = 0,
-
+            var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
             var fileOpenedCount: Int = 0,
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
-            var testCounts: MutableMap<String, TestCounter> = mutableMapOf(),
-            var openFiles: MutableMap<String, Int> = mutableMapOf()
+            var openFiles: List<FileInfo> = listOf()
+    )
+    data class FileInfo (
+            var path: String = "",
+            var lineCount: Int = 0
     )
 
     private fun totalCount(counter: Counter): Int {
-        return  counter.keystrokeCount +
+        return counter.keystrokeCount +
                 counter.caretAdded +
                 counter.caretRemoved +
                 counter.caretPositionChangedCount +
@@ -136,9 +139,15 @@ class CS125Component :
 
         if (state.UUID == "") {
             state.UUID = UUID.randomUUID().toString()
+            if (state.savedCounters.size != 0) {
+                log.warn("Must be updating plugin since saved counters exist before UUID is set")
+            }
         }
         for (counter in state.savedCounters) {
-            counter.UUID = state.UUID
+            if (counter.UUID != state.UUID) {
+                log.warn("Altering counter with bad UUID: ${counter.UUID} != ${state.UUID}")
+                counter.UUID = state.UUID
+            }
         }
 
         version = try {
@@ -257,22 +266,17 @@ class CS125Component :
             }
             counter.end = end
 
-            val files = FileEditorManager.getInstance(project).openFiles
-            val docManager = FileDocumentManager.getInstance()
-            for (file in files) {
-                try {
-                    if (file != null) {
-                        val doc = docManager.getCachedDocument(file)
-                        if (doc != null) {
-                            counter.openFiles[file.path] = doc.lineCount
-                        }
-                    }
-                } catch (e: Throwable) {}
+            val fileDocumentManager = FileDocumentManager.getInstance()
+            val openFiles: MutableMap<String, FileInfo> = mutableMapOf()
+            for (file in FileEditorManager.getInstance(project).openFiles.filterNotNull()) {
+                val document = fileDocumentManager.getCachedDocument(file) ?: continue
+                openFiles[file.path] = FileInfo(file.path, document.lineCount)
             }
+            counter.openFiles = openFiles.values.toList()
 
             counter.UUID = state.UUID
 
-            log.info("Counter " + counter.toString())
+            log.trace("Counter " + counter.toString())
 
             state.savedCounters.add(counter)
             currentProjectCounters[project] = Counter(
@@ -490,19 +494,19 @@ class CS125Component :
 
     override fun fileOpened(manager: FileEditorManager, file: VirtualFile) {
         val projectCounter = currentProjectCounters[manager.project] ?: return
-        log.info("fileOpened")
+        log.trace("fileOpened")
         projectCounter.fileOpenedCount++
     }
 
     override fun fileClosed(manager: FileEditorManager, file: VirtualFile) {
         val projectCounter = currentProjectCounters[manager.project] ?: return
-        log.info("fileClosed")
+        log.trace("fileClosed")
         projectCounter.fileClosedCount++
     }
 
     override fun selectionChanged(event: FileEditorManagerEvent) {
         val projectCounter = currentProjectCounters[event.manager.project] ?: return
-        log.info("fileSelectionChanged")
+        log.trace("fileSelectionChanged")
         projectCounter.fileSelectionChangedCount++
     }
 }
