@@ -63,12 +63,13 @@ class CS125Component :
             var interrupted: Int = 0
     )
     data class Counter(
+            var UUID: String = "",
             var index: Long = 0,
+            var previousIndex: Long = -1,
             var MP: String = "",
             var email: String = "",
             var sentIPAddress: String = "",
             var version: String = "",
-            var UUID: String = "",
             var start: Long = Instant.now().toEpochMilli(),
             var end: Long = 0,
             var keystrokeCount: Int = 0,
@@ -90,7 +91,11 @@ class CS125Component :
             var fileOpenedCount: Int = 0,
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
-            var openFiles: MutableList<FileInfo> = mutableListOf()
+            var openFiles: MutableList<FileInfo> = mutableListOf(),
+            var openFileCount: Int = 0,
+            var selectedFile: String = "",
+            var opened: Boolean = false,
+            var closed: Boolean = true
     )
     data class FileInfo (
             var path: String = "",
@@ -149,6 +154,15 @@ class CS125Component :
                 counter.UUID = state.UUID
             }
         }
+        for (counter in state.activeCounters) {
+            if (counter.UUID != state.UUID) {
+                log.warn("Altering counter with bad UUID: ${counter.UUID} != ${state.UUID}")
+                counter.UUID = state.UUID
+            }
+            counter.end = state.lastSave
+            state.savedCounters.add(counter)
+        }
+        state.activeCounters.clear()
 
         version = try {
             versionProperties.load(this.javaClass.getResourceAsStream("/version.properties"))
@@ -162,10 +176,6 @@ class CS125Component :
             EditorFactory.getInstance().eventMulticaster.addSelectionListener(this)
             EditorFactory.getInstance().eventMulticaster.addDocumentListener(this)
         }
-    }
-
-    override fun disposeComponent() {
-        return
     }
 
     var uploadBusy = false
@@ -274,20 +284,25 @@ class CS125Component :
                 openFiles[file.path] = FileInfo(file.path, document.lineCount)
             }
             counter.openFiles = openFiles.values.toMutableList()
-
-            counter.UUID = state.UUID
+            counter.openFileCount = counter.openFiles.size
+            counter.closed = false
 
             log.trace("Counter " + counter.toString())
 
             state.savedCounters.add(counter)
-            currentProjectCounters[project] = Counter(
+            state.activeCounters.remove(counter)
+
+            val newCounter = Counter(
+                    state.UUID,
                     state.counterIndex++,
+                    counter.index,
                     projectInfo[project]?.MP ?: "",
                     projectInfo[project]?.email ?: "",
                     projectInfo[project]?.networkAddress ?: "",
-                    version,
-                    state.UUID
+                    version
             )
+            currentProjectCounters[project] = newCounter
+            state.activeCounters.add(newCounter)
         }
 
         if (state.savedCounters.size > maxSavedCounters) {
@@ -337,12 +352,16 @@ class CS125Component :
 
         val state = CS125Persistence.getInstance().persistentState
 
-        currentProjectCounters[project] = Counter(state.counterIndex++,
+        val newCounter = Counter(state.UUID,
+                state.counterIndex++,
+                -1,
                 name,
                 email,
                 networkAddress,
-                version,
-                state.UUID)
+                version)
+        newCounter.opened = true
+        currentProjectCounters[project] = newCounter
+        state.activeCounters.add(newCounter)
 
         if (currentProjectCounters.size == 1) {
             stateTimer?.cancel()
@@ -362,9 +381,12 @@ class CS125Component :
 
         val currentCounter = currentProjectCounters[project] ?: return
         val state = CS125Persistence.getInstance().persistentState
-        if (totalCount(currentCounter) > 0) {
-            state.savedCounters.add(currentCounter)
-        }
+
+        // We save this counter regardless of whether it has counts just to mark the end of a session
+        currentCounter.end = Instant.now().toEpochMilli()
+        state.savedCounters.add(currentCounter)
+        state.activeCounters.remove(currentCounter)
+
         currentProjectCounters.remove(project)
         if (currentProjectCounters.isEmpty()) {
             stateTimer?.cancel()
@@ -515,5 +537,6 @@ class CS125Component :
         val projectCounter = currentProjectCounters[event.manager.project] ?: return
         log.trace("fileSelectionChanged")
         projectCounter.fileSelectionChangedCount++
+        projectCounter.selectedFile = event.newFile?.path ?: ""
     }
 }
