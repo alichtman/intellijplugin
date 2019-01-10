@@ -90,7 +90,7 @@ class CS125Component :
             var fileOpenedCount: Int = 0,
             var fileClosedCount: Int = 0,
             var fileSelectionChangedCount: Int = 0,
-            var openFiles: List<FileInfo> = listOf()
+            var openFiles: MutableList<FileInfo> = mutableListOf()
     )
     data class FileInfo (
             var path: String = "",
@@ -217,7 +217,8 @@ class CS125Component :
             return
         }
 
-        val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...", false) {
+        val uploadCounterTask = object: Task.Backgroundable(project,"Uploading CS 125 logs...",
+                false) {
             override fun run(progressIndicator: ProgressIndicator) {
                 val now = Instant.now().toEpochMilli()
 
@@ -272,7 +273,7 @@ class CS125Component :
                 val document = fileDocumentManager.getCachedDocument(file) ?: continue
                 openFiles[file.path] = FileInfo(file.path, document.lineCount)
             }
-            counter.openFiles = openFiles.values.toList()
+            counter.openFiles = openFiles.values.toMutableList()
 
             counter.UUID = state.UUID
 
@@ -312,7 +313,8 @@ class CS125Component :
         }
 
         @Suppress("UNCHECKED_CAST")
-        val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath())) as Map<String, String>
+        val gradeConfiguration = Yaml().load(Files.newBufferedReader(gradeConfigurationFile.toPath()))
+                as Map<String, String>
         val name = gradeConfiguration["name"] ?: return
 
         val emailFile = File(project.baseDir.path).resolve(File("email.txt"))
@@ -335,7 +337,12 @@ class CS125Component :
 
         val state = CS125Persistence.getInstance().persistentState
 
-        currentProjectCounters[project] = Counter(state.counterIndex++, name, email, networkAddress, version, state.UUID)
+        currentProjectCounters[project] = Counter(state.counterIndex++,
+                name,
+                email,
+                networkAddress,
+                version,
+                state.UUID)
 
         if (currentProjectCounters.size == 1) {
             stateTimer?.cancel()
