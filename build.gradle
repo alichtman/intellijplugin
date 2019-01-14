@@ -19,7 +19,7 @@ apply plugin: 'org.jetbrains.intellij'
 apply plugin: 'kotlin'
 
 intellij {
-  version 'IC-2018.1.6'
+  version 'IC-2018.2.2'
   pluginName 'CS 125 Plugin'
 }
 
@@ -33,7 +33,7 @@ dependencies {
 }
 
 group = 'edu.illinois.cs.cs125'
-version = '0.2.0'
+version = '0.2.1'
 
 def generatedVersionDir = "${buildDir}/generated-version"
 sourceSets {

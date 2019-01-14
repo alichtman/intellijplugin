@@ -1,15 +1,13 @@
 <idea-plugin>
     <id>edu.illinois.cs.cs125.intellijplugin</id>
     <name>CS 125 @ Illinois</name>
-    <version>0.1.3</version>
+    <version>0.2.1</version>
 
     <vendor email="challen@illinois.edu" url="https://cs125.cs.illinois.edu">CS 125 @ Illinois</vendor>
 
-    <description><![CDATA[
-    Enables MP development for CS 125 @ Illinois.
-    ]]></description>
+    <description><![CDATA[ Enables MP development for CS 125 @ Illinois. ]]></description>
 
-    <idea-version since-build="IC-2018.1.6"/>
+    <idea-version since-build="IC-2018.2.2"/>
 
     <depends>com.intellij.modules.lang</depends>
 
